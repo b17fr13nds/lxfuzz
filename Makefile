@@ -3,13 +3,7 @@ CXX = g++ -std=c++2a
 TARGET_CXX = g++ -std=c++2a
 
 fuzzer: ./src/fuzzer.cpp
-	$(TARGET_CXX) ./src/fuzzer.cpp ./src/syscall_generator.cpp ./src/syscall_executor.cpp ./src/sysdevproc_generator.cpp ./src/sysdevproc_executor.cpp ./src/socket_generator.cpp ./src/socket_executor.cpp ./src/hypercall.c $(CFLAGS) -o ./kernel/initramfs/fuzzer
-	chmod a+x ./kernel/initramfs/fuzzer
-
-initramfs:
-	cd ./kernel/initramfs && find . | cpio -o -H newc > ../initramfs.cpio
-	gzip < ./kernel/initramfs.cpio > ./kernel/initramfs.cpio.gz
-	rm ./kernel/initramfs.cpio
+	$(TARGET_CXX) ./src/fuzzer.cpp ./src/syscall_generator.cpp ./src/syscall_executor.cpp ./src/sysdevproc_generator.cpp ./src/sysdevproc_executor.cpp ./src/socket_generator.cpp ./src/socket_executor.cpp ./src/hypercall.c $(CFLAGS)
 
 manager: ./src/manager.cpp
 	$(CXX) ./src/manager.cpp $(CFLAGS) -o manager -Wno-write-strings
@@ -29,10 +23,9 @@ qemu-setup:
 qemu: qemu-setup
 	cd ./tools/qemu-7.1.0 && make
 
-all: qemu fuzzer manager initramfs
+all: qemu fuzzer manager
 
 clean: all
-	rm ./kernel/initramfs/fuzzer
-	rm ./kernel/initramfs.cpio.gz
-	rm -r ./kernel/qemu*
+	rm fuzzer
 	rm manager
+	rm -r ./tools/qemu*
