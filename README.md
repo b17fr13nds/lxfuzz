@@ -1,19 +1,19 @@
 # uxfuzz
-uxfuzz is a black-box fuzzer used as a base for more os specific (unix based) fuzzers. it is scalable because of qemu being used to emualte in a way to be able to freely choose the number of instances and their memory.
+uxfuzz is a black-box fuzzer used as a base for more os specific (unix based and mostly posix compatible) fuzzers. it is scalable because of qemu being used to emulate in a way to be able to freely choose the number of instances and their memory.
 
-QEMU running parameters are set to be working with linux plus some linux specific files in `kernel/` as well as some things in `Makefile`. Highly experimental, will get cleaned up.
+## setup and run
 
-minimal Linux options:
+to build the whole project simply run 
 ```
-CONFIG_USER_NS=y
-CONFIG_NET_DEV_REFCNT_TRACKER=y
-CONFIG_NET_NS_REFCNT_TRACKER=y
-CONFIG_KASAN=y
-CONFIG_PANIC_ON_OOPS=y
-CONFIG_BUG_ON_DATA_CORRUPTION=y
-CONFIG_KCOV=y
-CONFIG_KCOV_INSTRUMENT_ALL=y
-
-# CONFIG_RANDOMIZE_BASE is not set
+make all
 ```
- 
+this will build a custom qemu emulator (x86-64) plus the fuzzer and manager
+
+before running the manager, you have to configure how your kernel should be started. you can do that by editing the `cmdline.cfg` file (which already contains an example configuration)
+you're completely free in how the kernel is to be running. make sure to have qemu exit on a kernel panic or similar. be careful to use the modified qemu emulator (located in `./tools/qemu-7.1.0/build/`)
+
+if everything is set up you can start the manager
+```
+./manager <no of instances>
+```
+you can choose as much instances as your hardware can take
