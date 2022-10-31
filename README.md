@@ -17,7 +17,7 @@ if everything is set up you can start the manager
 ```
 ./manager <no of instances>
 ```
-you can choose as much instances as your hardware can take.
+you can choose as many instances as your hardware can take.
 
 ## logs and crashes
 
