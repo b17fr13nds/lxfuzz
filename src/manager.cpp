@@ -90,6 +90,10 @@ auto check_if_alive(int idx) -> bool {
   return false;
 }
 
+auto save_crash(int instance_no) -> void {
+  std::filesystem::copy("./kernel/data/instance" + std::to_string(instance_no), "./kernel/data/instance" + std::to_string(instance_no) + "_crash"); 
+}
+
 auto cleanup(int x) -> void {
   if(mq_unlink("/fuzzer") == -1) perror("mq_unlink");
 
@@ -127,6 +131,7 @@ auto main(int argc, char **argv) -> int {
       if(!check_if_alive(i)) {
         std::cout << "instance " << i << " crashed!" << std::endl;
         crashes++;
+        save_crash(i);
         start_instance(i);
         std::cout << "instance " << i << " brought back up!" << std::endl;
       } else {
