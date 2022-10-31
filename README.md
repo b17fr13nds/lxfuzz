@@ -21,6 +21,7 @@ you can choose as much instances as your hardware can take.
 
 ## logs and crashes
 
-all fuzzing logs are saved in `./kernel/data/`. each instance got an own directory in which each core/thread got an own log file. the log format is readable by humans and programs can be recreated manually. there will be an automatic program recreator in the future. WARNING: the log folders and files grow extremely large after some time. make sure to keep track of them and keep removing old log data (i.e. by a shell script)
+all fuzzing logs are saved in `./kernel/data/`. each instance got an own directory in which each core/thread got an own log file. the log format is readable by humans and programs can be recreated manually. there will be an automatic program recreator in the future. 
+WARNING: the log folders and files grow extremely large after some time. make sure to keep track of them and keep removing old log data (i.e. by a shell script)
 
 if the manager encounters a crash, the whole log directory of the corresponding instance is copied and saved.
