@@ -1,0 +1,14 @@
+diff --git a/target/i386/tcg/translate.c b/target/i386/tcg/translate.c
+index b7972f0..afa3311 100644
+--- a/target/i386/tcg/translate.c
++++ b/target/i386/tcg/translate.c
+@@ -4721,6 +4721,9 @@ static target_ulong disas_insn(DisasContext *s, CPUState *cpu)
+ 
+         /**************************/
+         /* arith & logic */
++    case 0x1a6: // custom opcode: 0f a6 (flog)
++        gen_helper_flog(cpu_env);
++        break;
+     case 0x00 ... 0x05:
+     case 0x08 ... 0x0d:
+     case 0x10 ... 0x15:

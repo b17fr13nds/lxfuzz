@@ -1,0 +1,24 @@
+diff --git a/softmmu/vl.c b/softmmu/vl.c
+index 706bd7c..547e27c 100644
+--- a/softmmu/vl.c
++++ b/softmmu/vl.c
+@@ -136,6 +136,9 @@
+ 
+ #include "config-host.h"
+ 
++#include "instance.h"
++int instance_no;
++
+ #define MAX_VIRTIO_CONSOLES 1
+ 
+ typedef struct BlockdevOptionsQueueEntry {
+@@ -2694,6 +2697,9 @@ void qemu_init(int argc, char **argv, char **envp)
+                 exit(1);
+             }
+             switch(popt->index) {
++            case QEMU_OPTION_fi:
++                instance_no = atoi(optarg);
++                break;
+             case QEMU_OPTION_cpu:
+                 /* hw initialization will check this */
+                 cpu_option = optarg;

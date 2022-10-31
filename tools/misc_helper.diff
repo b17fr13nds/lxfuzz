@@ -1,0 +1,83 @@
+diff --git a/target/i386/tcg/misc_helper.c b/target/i386/tcg/misc_helper.c
+index 5f7a306..9129c57 100644
+--- a/target/i386/tcg/misc_helper.c
++++ b/target/i386/tcg/misc_helper.c
+@@ -17,12 +17,23 @@
+  * License along with this library; if not, see <http://www.gnu.org/licenses/>.
+  */
+ 
++#include <mqueue.h>
++#include <fcntl.h>
++#include <time.h>
++
+ #include "qemu/osdep.h"
+ #include "qemu/log.h"
+ #include "cpu.h"
+ #include "exec/helper-proto.h"
+ #include "exec/exec-all.h"
+ #include "helper-tcg.h"
++#include "exec/cpu_ldst.h" // for cpu_ldq_le_data
++#include "instance.h" // for instance_no
++
++int fds[0x100];
++clock_t start, stop;
++mqd_t desc;
++unsigned long execs;
+ 
+ /*
+  * NOTE: the translator must set DisasContext.cc_op to CC_OP_EFLAGS
+@@ -75,6 +86,54 @@ void helper_rdtsc(CPUX86State *env)
+     env->regs[R_EDX] = (uint32_t)(val >> 32);
+ }
+ 
++// custom instruction to transfer fuzzer log
++void helper_flog(CPUX86State *env) {
++    uint64_t sz = sizeof(uint64_t), thread_no = (uint64_t)env->regs[R_EDI];
++    uint64_t *data = NULL;
++    char filename[40];
++
++    if(start == 0) start = clock();
++    if(!desc) {
++        desc = mq_open("/fuzzer", O_WRONLY);
++        if(desc == -1) perror("mq_open");
++    }
++
++    struct {
++        unsigned long total_execs;
++        double execs_per_sec;
++    } stats;
++
++    for(int i = 0;; i++, sz += sizeof(uint64_t)) {
++        data = realloc(data, sz);
++        data[i] = cpu_ldq_le_data(env, (abi_ptr)env->regs[R_ESI]+i*8);
++        for(int j = 0; j < 8; j++) if(!((data[i] >> j*0x8) & 0xff)) goto out;
++    }
++
++out:
++    if(!strncmp((char *)data, "---------- NEW PROGRAM ----------", 33)) execs++;
++
++    if(!fds[thread_no]) {
++        snprintf(filename, 40, "./kernel/data/instance%d/log_t%ld", instance_no, thread_no);
++        fds[thread_no] = open(filename, O_RDWR|O_APPEND|O_CREAT, S_IRUSR|S_IWUSR|S_IRGRP|S_IWGRP|S_IROTH|S_IWOTH);
++    }
++
++    if(write(fds[thread_no], (char *)data, strlen((char *)data)) == -1) perror("write");
++    if(write(fds[thread_no], "\x0a\x00", 2) == -1) perror("write");
++
++    stop = clock();
++    if(((double)(stop - start) / CLOCKS_PER_SEC) > 30.0) {
++        stats.total_execs = execs;
++        stats.execs_per_sec = stats.total_execs / (unsigned long)((double)(stop - start) / CLOCKS_PER_SEC);
++
++        if(mq_send(desc, (char *)&stats, sizeof(stats), 0) == -1) perror("mq_send");
++
++        start = 0;
++        execs = 0;
++    }
++
++    free(data);
++}
++
+ void helper_rdtscp(CPUX86State *env)
+ {
+     helper_rdtsc(env);

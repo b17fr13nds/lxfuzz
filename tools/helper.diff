@@ -1,0 +1,11 @@
+diff --git a/target/i386/helper.h b/target/i386/helper.h
+index ac3b4d1..ef78407 100644
+--- a/target/i386/helper.h
++++ b/target/i386/helper.h
+@@ -81,6 +81,7 @@ DEF_HELPER_FLAGS_1(single_step, TCG_CALL_NO_WG, noreturn, env)
+ DEF_HELPER_1(rechecking_single_step, void, env)
+ DEF_HELPER_1(cpuid, void, env)
+ DEF_HELPER_1(rdtsc, void, env)
++DEF_HELPER_1(flog, void, env)
+ DEF_HELPER_1(rdtscp, void, env)
+ DEF_HELPER_FLAGS_1(rdpmc, TCG_CALL_NO_WG, noreturn, env)

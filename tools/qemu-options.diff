@@ -1,0 +1,18 @@
+diff --git a/qemu-options.hx b/qemu-options.hx
+index 31c04f7..1aa7a6e 100644
+--- a/qemu-options.hx
++++ b/qemu-options.hx
+@@ -15,6 +15,13 @@ SRST
+     Display help and exit
+ ERST
+ 
++DEF("fi", HAS_ARG, QEMU_OPTION_fi,
++    "-fi	        specify fuzzer instance number\n", QEMU_ARCH_I386)
++SRST
++``-fi``
++    specify fuzzer instance number
++ERST
++
+ DEF("version", 0, QEMU_OPTION_version,
+     "-version        display version information and exit\n", QEMU_ARCH_ALL)
+ SRST
