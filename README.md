@@ -1,5 +1,5 @@
 # uxfuzz
-uxfuzz is a black-box fuzzer used as a base for more os specific (unix based and mostly posix compatible) fuzzers. it is scalable because of qemu being used to emulate in a way to be able to freely choose the number of instances and their memory.
+lxfuzz is a grey-box fuzzer used for linux. it is scalable because of qemu being used to emulate in a way to be able to freely choose the number of instances and their memory.
 
 ## setup and run
 
