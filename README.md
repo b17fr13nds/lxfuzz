@@ -3,7 +3,22 @@ lxfuzz is a grey-box fuzzer used for linux. it is scalable because of qemu being
 
 ## setup and run
 
-to build the whole project simply run 
+first you will need a properly built linux kernel. following options should be enabled
+```
+CONFIG_USER_NS=y
+CONFIG_NET_DEV_REFCNT_TRACKER=y
+CONFIG_NET_NS_REFCNT_TRACKER=y
+CONFIG_KASAN=y
+CONFIG_PANIC_ON_OOPS=y
+CONFIG_BUG_ON_DATA_CORRUPTION=y
+CONFIG_KCOV=y
+CONFIG_KCOV_INSTRUMENT_ALL=y
+
+# CONFIG_RANDOMIZE_BASE is not set
+```
+enabling extra options that add more code to be fuzzed is always a good idea
+
+now, to build the fuzzer simply run
 ```
 make all
 ```

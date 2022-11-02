@@ -8,6 +8,11 @@ fuzzer: ./src/fuzzer.cpp
 manager: ./src/manager.cpp
 	$(CXX) ./src/manager.cpp $(CFLAGS) -o manager -Wno-write-strings
 
+initramfs:
+	cd ./kernel/initramfs && find . | cpio -o -H newc > ../initramfs.cpio
+	gzip < ./kernel/initramfs.cpio > ./kernel/initramfs.cpio.gz
+	rm ./kernel/initramfs.cpio
+
 qemu-setup:
 	cd tools/ && \
 	wget https://download.qemu.org/qemu-7.1.0.tar.xz && \
@@ -23,7 +28,7 @@ qemu-setup:
 qemu: qemu-setup
 	cd ./tools/qemu-7.1.0 && make
 
-all: qemu fuzzer manager
+all: qemu fuzzer manager initramfs
 
 clean: all
 	rm fuzzer
