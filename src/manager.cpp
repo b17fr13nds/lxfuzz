@@ -10,7 +10,7 @@
 #include <mqueue.h>
 #include <sys/types.h>
 #include <sys/wait.h>
-#include "fuzzer.h"
+#include "manager.h"
 
 std::vector<int> instances;
 

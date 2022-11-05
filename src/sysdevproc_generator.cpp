@@ -7,13 +7,6 @@
 #include <fcntl.h>
 #include "fuzzer.h"
 
-auto check_smaller_before(unsigned long start, unsigned long c, sysdevproc_op_t* s) -> bool {
-  for(long i{static_cast<long>(start)+1}; i >= 0; i--) {
-    if(s->sinfo.get_deep(i) >= c) break;
-    if(s->sinfo.get_deep(i) < c) return true;
-  }
-  return false;
-}
 
 auto open_device(prog_t *p) -> int {
   int fd{}, tmp{};
@@ -48,12 +41,10 @@ auto open_device(prog_t *p) -> int {
 }
 
 auto create_sysdevprocop() -> sysdevproc_op_t* {
+  int max_struct_rand{1}, curr_rand{0};
   unsigned long structure_deep{0};
-  auto max_struct_rand{1}, curr_rand{0};
   std::vector<unsigned long> tmp;
   sysdevproc_op_t *sdpop = new sysdevproc_op_t;
-
-  sdpop->size = 0;
 
   sdpop->option = get_random(0,2);
   switch(sdpop->option) {
@@ -90,7 +81,7 @@ auto create_sysdevprocop() -> sysdevproc_op_t* {
 
       for(unsigned long i{0}; i < sdpop->sinfo.get_size()-1; i++) {
         if(j+1 <= sdpop->sinfo.get_deep(i) && sdpop->sinfo.get_deep(i)) {
-          if(check_smaller_before(i, j+1, sdpop)) sdpop->sinfo.incr_end(j+1);
+          if(check_smaller_before<sysdevproc_op_t>(i, j+1, sdpop)) sdpop->sinfo.incr_end(j+1);
         }
       }
     }
@@ -114,13 +105,14 @@ auto create_sysdevprocop() -> sysdevproc_op_t* {
 
 auto create_program2() -> prog_t* {
   prog_t *program = new prog_t;
-  auto n{static_cast<int>(get_random(1,8))}, fd{open_device(program)};
+  int fd{open_device(program)};
+  auto n{get_random(1,8)};
 
   program->inuse = 1;
   program->op.sdp = new std::vector<sysdevproc_op_t*>;
   program->nops = n;
 
-  for(auto i{0}; i < n; i++) {
+  for(decltype(n) i{0}; i < n; i++) {
     program->op.sdp->push_back(create_sysdevprocop());
     program->op.sdp->at(i)->fd = fd;
   }

@@ -9,20 +9,13 @@
 #include <sys/socket.h>
 #include "fuzzer.h"
 
-auto check_smaller_before(unsigned long start, unsigned long c, socket_op_t* s) -> bool {
-  for(long i{static_cast<long>(start)+1}; i >= 0; i--) {
-    if(s->sinfo.get_deep(i) >= c) break;
-    if(s->sinfo.get_deep(i) < c) return true;
-  }
-  return false;
-}
 
 auto open_socket(prog_t *p) -> int {
   int fd{}, domain{}, type{};
 
   do {
-    domain = get_random(AF_UNIX,AF_XDP);
-    type = get_random(SOCK_STREAM,SOCK_RDM);
+    domain = get_random(0x0,0x1000);
+    type = get_random(0x0,0x1000);
     fd = socket(domain, type, 0);
   } while(fd == -1);
 
@@ -32,12 +25,11 @@ auto open_socket(prog_t *p) -> int {
 }
 
 auto create_socketop() -> socket_op_t* {
+  int max_struct_rand{1}, curr_rand{0};
   unsigned long structure_deep{0};
-  auto max_struct_rand{1}, curr_rand{0};
   std::vector<unsigned long> tmp;
-  socket_op_t *sop = new socket_op_t;
 
-  sop->size = 0;
+  socket_op_t *sop = new socket_op_t;
 
   sop->option = get_random(0,3);
   switch(sop->option) {
@@ -80,7 +72,7 @@ auto create_socketop() -> socket_op_t* {
 
       for(unsigned long i{0}; i < sop->sinfo.get_size()-1; i++) {
         if(j+1 <= sop->sinfo.get_deep(i) && sop->sinfo.get_deep(i)) {
-          if(check_smaller_before(i, j+1, sop)) sop->sinfo.incr_end(j+1);
+          if(check_smaller_before<socket_op_t>(i, j+1, sop)) sop->sinfo.incr_end(j+1);
         }
       }
     }
@@ -106,13 +98,14 @@ auto create_socketop() -> socket_op_t* {
 
 auto create_program3() -> prog_t* {
   prog_t *program = new prog_t;
-  auto n{static_cast<int>(get_random(1,8))}, fd{open_socket(program)};
+  int fd{open_socket(program)};
+  auto n{get_random(1,8)};
 
   program->inuse = 2;
   program->op.sock = new std::vector<socket_op_t*>;
   program->nops = n;
 
-  for(auto i{0}; i < n; i++) {
+  for(decltype(n) i{0}; i < n; i++) {
     program->op.sock->push_back(create_socketop());
     program->op.sock->at(i)->fd = fd;
   }

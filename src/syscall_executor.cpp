@@ -4,12 +4,14 @@
 #include "fuzzer.h"
 
 template <typename... T>
-auto exec_syscall(unsigned short nr, T... args) {
+auto exec_syscall(unsigned short nr, T... args) -> void {
   syscall(nr, args...);
+  return;
 }
 
-auto exec_syscall(unsigned short nr) {
+auto exec_syscall(unsigned short nr) -> void {
   syscall(nr);
+  return;
 }
 
 auto execute(syscall_t* sysc) -> void {

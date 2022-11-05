@@ -24,16 +24,6 @@ auto get_random(unsigned long min, unsigned long max) -> unsigned long {
   return dist6(rng);
 }
 
-auto deref(unsigned long *in, std::vector<size_t>* offsets) -> unsigned long* {
-  unsigned long *tmp{in};
-
-  for(unsigned long i{0}; i < offsets->size(); i++) {
-    tmp = reinterpret_cast<unsigned long*>(tmp[offsets->at(i)]);
-  }
-
-  return tmp;
-}
-
 auto execute_program(prog_t *program) -> void {
   auto pid{fork()};
 

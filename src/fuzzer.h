@@ -1,5 +1,6 @@
 #include <vector>
 #include <variant>
+#include "manager.h"
 
 class structinfo_t {
   std::vector<std::vector<unsigned long>> structinfo;
@@ -40,26 +41,34 @@ public:
 
 class syscall_t {
 public:
+  syscall_t() : sysno{0}, nargs{0} {};
+
   unsigned short sysno;
   unsigned short nargs;
   std::vector<unsigned long> value;
   structinfo_t sinfo;
+
   std::string log;
 };
 
 class sysdevproc_op_t {
 public:
+  sysdevproc_op_t() : fd{0}, option{0}, request{0}, size{0} {};
+
   int fd;
   unsigned char option;
   unsigned long request;
   std::vector<unsigned long> value;
   structinfo_t sinfo;
   unsigned long size;
+
   std::string log;
 };
 
 class socket_op_t {
 public:
+  socket_op_t() : fd{0}, option{0}, request{0}, size{0}, optname{0} {};
+
   int fd;
   unsigned char option;
   unsigned long request;
@@ -67,6 +76,7 @@ public:
   structinfo_t sinfo;
   unsigned long size;
   int optname;
+
   std::string log;
 };
 
@@ -80,11 +90,6 @@ typedef struct {
   } op;
   std::string init_log;
 } prog_t;
-
-typedef struct {
-  unsigned long total_execs;
-  double execs_per_sec;
-} stats_t;
 
 class fuzzinfo_t {
   std::vector<prog_t*> corpus;
@@ -119,25 +124,43 @@ public:
   size.push_back(8);\
 }
 
-inline void error(const char *str) {
-  perror(str);
-  exit(-1);
+template <typename T>
+inline auto check_smaller_before(unsigned long start, unsigned long c, T* s) -> bool {
+  for(long i{static_cast<long>(start)+1}; i >= 0; i--) {
+    if(s->sinfo.get_deep(i) >= c) break;
+    if(s->sinfo.get_deep(i) < c) return true;
+  }
+
+  return false;
 }
 
-auto deref(unsigned long *, std::vector<size_t>*) -> unsigned long*;
-template <typename... T>
-auto exec_syscall(unsigned short, T...);
-auto exec_syscall(unsigned short);
-auto open_device(prog_t *) -> int;
-auto open_socket(prog_t *) -> int;
-auto execute(syscall_t*) -> void;
-auto execute(sysdevproc_op_t*) -> void;
-auto execute(socket_op_t*) -> void;
-auto execute_program(prog_t *) -> void;
+inline auto deref(unsigned long *in, std::vector<size_t>* offsets) -> unsigned long* {
+  unsigned long *tmp{in};
+
+  for(unsigned long i{0}; i < offsets->size(); i++) {
+    tmp = reinterpret_cast<unsigned long*>(tmp[offsets->at(i)]);
+  }
+
+  return tmp;
+}
+
 auto get_random(unsigned long, unsigned long) -> unsigned long;
-auto check_smaller_before(unsigned long, unsigned long, syscall_t*) -> bool;
-auto check_smaller_before(unsigned long, unsigned long, sysdevproc_op_t*) -> bool;
-auto check_smaller_before(unsigned long, unsigned long, socket_op_t*) -> bool;
+auto execute_program(prog_t*) -> void;
+auto start(int) -> void;
+
+template <typename... T>
+auto exec_syscall(unsigned short, T...) -> void;
+auto exec_syscall(unsigned short) -> void;
+auto execute(syscall_t*) -> void;
+auto create_syscall() -> syscall_t*;
 auto create_program1() -> prog_t*;
+
+auto open_device(prog_t*) -> int;
+auto execute(sysdevproc_op_t*) -> void;
+auto create_sysdevprocop() -> sysdevproc_op_t*;
 auto create_program2() -> prog_t*;
+
+auto open_socket(prog_t*) -> int;
+auto execute(socket_op_t*) -> void;
+auto create_socketop() -> socket_op_t*;
 auto create_program3() -> prog_t*;

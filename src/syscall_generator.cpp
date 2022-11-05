@@ -4,18 +4,11 @@
 #include <vector>
 #include "fuzzer.h"
 
-auto check_smaller_before(unsigned long start, unsigned long c, syscall_t* s) -> bool {
-  for(long i{static_cast<long>(start)+1}; i >= 0; i--) {
-    if(s->sinfo.get_deep(i) >= c) break;
-    if(s->sinfo.get_deep(i) < c) return true;
-  }
-  return false;
-}
-
 auto create_syscall() -> syscall_t* {
-  auto nargs{static_cast<int>(get_random(0,6))}, cnt{0}, max_struct_rand{1}, curr_rand{0};
+  int nargs{static_cast<int>(get_random(0,6))}, cnt{0}, max_struct_rand{1}, curr_rand{0};
   unsigned long saved{0}, structure_deep{0};
   std::vector<unsigned long> tmp;
+
   syscall_t *sysc = new syscall_t;
 
   sysc->sysno = get_random(0,332);
@@ -40,7 +33,7 @@ auto create_syscall() -> syscall_t* {
 
       for(unsigned long i{0}; i < sysc->sinfo.get_size()-1; i++) {
         if(j+1 <= sysc->sinfo.get_deep(i) && sysc->sinfo.get_deep(i)) {
-          if(check_smaller_before(i, j+1, sysc)) sysc->sinfo.incr_end(j+1);
+          if(check_smaller_before<syscall_t>(i, j+1, sysc)) sysc->sinfo.incr_end(j+1);
         }
       }
     }
@@ -72,8 +65,8 @@ auto create_syscall() -> syscall_t* {
 }
 
 auto create_program1() -> prog_t* {
-  auto n{get_random(1,8)};
   prog_t *program = new prog_t;
+  auto n{get_random(1,8)};
 
   program->inuse = 0;
   program->op.sysc = new std::vector<syscall_t*>;
