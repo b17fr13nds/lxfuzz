@@ -5,19 +5,18 @@
 #include "fuzzer.h"
 
 auto create_syscall() -> syscall_t* {
-  int nargs{static_cast<int>(get_random(0,6))}, cnt{0}, max_struct_rand{1}, curr_rand{0};
-  unsigned long saved{0}, structure_deep{0};
-  std::vector<unsigned long> tmp;
+  int32_t nargs{static_cast<int32_t>(get_random(0,6))}, cnt{0}, max_struct_rand{1}, curr_rand{0};
+  uint64_t saved{0}, structure_deep{0};
+  std::vector<uint64_t> tmp;
 
   syscall_t *sysc = new syscall_t;
 
   sysc->sysno = get_random(0,332);
-  sysc->log = "syscall(" + std::to_string(sysc->sysno);
 
   while(cnt < nargs) {
-    sysc->log += ", ";
+    sysc->nargno.push_back(nargs);
     curr_rand = get_random(0,max_struct_rand);
-    structure_deep = static_cast<unsigned long>(curr_rand);
+    structure_deep = static_cast<uint64_t>(curr_rand);
 
     sysc->value.push_back(get_random(0,0xffffffffffffffff));
     if(curr_rand == max_struct_rand) {
@@ -28,17 +27,15 @@ auto create_syscall() -> syscall_t* {
 
     sysc->sinfo.push(tmp);
     sysc->sinfo.push_end(1);
-    for(unsigned long j{0}; j < structure_deep; j++) {
+    for(uint64_t j{0}; j < structure_deep; j++) {
       sysc->sinfo.push_end(1);
 
-      for(unsigned long i{0}; i < sysc->sinfo.get_size()-1; i++) {
+      for(uint64_t i{0}; i < sysc->sinfo.get_size()-1; i++) {
         if(j+1 <= sysc->sinfo.get_deep(i) && sysc->sinfo.get_deep(i)) {
           if(check_smaller_before<syscall_t>(i, j+1, sysc)) sysc->sinfo.incr_end(j+1);
         }
       }
     }
-
-    sysc->log += "[v:" + std::to_string(sysc->value.back()) + "|d:" + std::to_string(sysc->sinfo.get_deep(sysc->sinfo.get_size()-1)) + "|n:" + std::to_string(sysc->sinfo.get_last()) + "]";
 
     switch(sysc->sinfo.get_deep(sysc->sinfo.get_size()-1)) {
       case 0:
@@ -46,8 +43,8 @@ auto create_syscall() -> syscall_t* {
       cnt++;
       break;
       case 1:
-      if(sysc->sinfo.get_last() == saved) break;
-      saved = sysc->sinfo.get_last();
+      if(sysc->sinfo.get_last(sysc->sinfo.structinfo.size()-1) == saved) break;
+      saved = sysc->sinfo.get_last(sysc->sinfo.structinfo.size()-1);
       cnt++;
       break;
       default:
@@ -55,10 +52,9 @@ auto create_syscall() -> syscall_t* {
         if(sysc->sinfo.get_deep(sysc->sinfo.get_size()-2) != 0) break;
       } else break;
       cnt++;
+      break;
     }
   }
-
-  sysc->log += ");";
 
   sysc->nargs = nargs;
   return sysc;

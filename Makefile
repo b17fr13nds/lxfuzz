@@ -1,12 +1,18 @@
-CFLAGS = -O3 -Wall -g -lpthread -static -lrt
+CFLAGS = -O3 -Wall -lpthread -static -lrt -Wno-unused-result -g
 CXX = g++ -std=c++2a
 TARGET_CXX = g++ -std=c++2a
 
 fuzzer: ./src/fuzzer.cpp
-	$(TARGET_CXX) ./src/fuzzer.cpp ./src/syscall_generator.cpp ./src/syscall_executor.cpp ./src/sysdevproc_generator.cpp ./src/sysdevproc_executor.cpp ./src/socket_generator.cpp ./src/socket_executor.cpp ./src/hypercall.c $(CFLAGS)
+	$(TARGET_CXX) ./src/fuzzer.cpp ./src/mutator.cpp ./src/syscall_generator.cpp ./src/syscall_executor.cpp ./src/sysdevproc_generator.cpp ./src/sysdevproc_executor.cpp ./src/socket_generator.cpp ./src/socket_executor.cpp ./src/hypercall.c -o ./fuzzer $(CFLAGS)
 
-manager: ./src/manager.cpp
-	$(CXX) ./src/manager.cpp $(CFLAGS) -o manager -Wno-write-strings
+fuzz_manager: ./src/fuzz_manager.cpp
+	$(CXX) ./src/fuzz_manager.cpp $(CFLAGS) -o fuzz_manager -Wno-write-strings
+
+reproducer:
+	$(TARGET_CXX) ./src/reproducer.cpp ./src/syscall_executor.cpp ./src/sysdevproc_executor.cpp ./src/socket_executor.cpp -o ./reproducer $(CFLAGS)
+
+repro_manager: ./src/repro_manager.cpp
+	$(CXX) ./src/repro_manager.cpp $(CFLAGS) -o repro_manager -Wno-write-strings
 
 initramfs:
 	cd ./kernel/initramfs && find . | cpio -o -H newc > ../initramfs.cpio
@@ -28,9 +34,11 @@ qemu-setup:
 qemu: qemu-setup
 	cd ./tools/qemu-7.1.0 && make
 
-all: qemu fuzzer manager initramfs
+all: qemu fuzzer fuzz_manager repro_manager initramfs
+	mkdir kernel && mkdir kernel/data
 
 clean: all
 	rm fuzzer
-	rm manager
+	rm fuzz_manager
+	rm repro_manager
 	rm -r ./tools/qemu*

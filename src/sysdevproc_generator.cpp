@@ -4,13 +4,12 @@
 #include <vector>
 #include <random>
 #include <filesystem>
-#include <fcntl.h>
 #include "fuzzer.h"
 
 
 auto open_device(prog_t *p) -> int {
   int fd{}, tmp{};
-  std::string path, prot, log;
+  std::string path, log;
   std::vector<std::string> devnames;
 
   path = "/dev";
@@ -28,14 +27,14 @@ auto open_device(prog_t *p) -> int {
   do {
     tmp = get_random(0, devnames.size()-1);
     fd = open(devnames.at(tmp).c_str(), O_RDWR);
-    prot = "O_RDWR";
+    p->prot = O_RDWR;
     if(fd == -1) {
       fd = open(devnames.at(tmp).c_str(), O_RDONLY);
-      prot = "O_RDONLY";
+      p->prot = O_RDONLY;
     }
   } while(fd == -1);
 
-  p->init_log = "open(" + devnames.at(tmp) + ", " + prot + ");";
+  p->devname = devnames.at(tmp);
 
   return fd;
 }
@@ -47,25 +46,13 @@ auto create_sysdevprocop() -> sysdevproc_op_t* {
   sysdevproc_op_t *sdpop = new sysdevproc_op_t;
 
   sdpop->option = get_random(0,2);
-  switch(sdpop->option) {
-    case 0: // ioctl
-    sdpop->request = get_random(0,0xffffffffffffffff);
-    sdpop->log = "ioctl(" + std::to_string(sdpop->fd) + ", " + std::to_string(sdpop->request) + ", ";
-    break;
-    case 1:
-    sdpop->log = "read(" + std::to_string(sdpop->fd) + ", ";
-    break;
-    case 2:
-    sdpop->log = "write(" + std::to_string(sdpop->fd) + ", ";
-    break;
-  }
 
   while(1) {
     curr_rand = get_random(0,max_struct_rand);
     structure_deep = static_cast<unsigned long>(curr_rand);
 
     sdpop->value.push_back(get_random(0,0xffffffffffffffff));
-    if(sdpop->option != 0)
+    if(sdpop->option != 0 && !curr_rand)
       sdpop->size += 8;
 
     if(curr_rand == max_struct_rand) {
@@ -86,18 +73,7 @@ auto create_sysdevprocop() -> sysdevproc_op_t* {
       }
     }
 
-    sdpop->log += "[v:" + std::to_string(sdpop->value.back()) + "|d:" + std::to_string(sdpop->sinfo.get_deep(sdpop->sinfo.get_size()-1)) + "|n:" + std::to_string(sdpop->sinfo.get_last()) + "]";
-
     if(!sdpop->sinfo.get_deep(sdpop->sinfo.get_size()-1)) break;
-  }
-
-  switch(sdpop->option) {
-    case 1: [[fallthrough]];
-    case 2: 
-    sdpop->log += ", " + std::to_string(sdpop->size);
-    default:
-    sdpop->log += ");";
-    break;
   }
 
   return sdpop;
