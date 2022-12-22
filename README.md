@@ -22,17 +22,18 @@ now, to build the fuzzer simply run
 ```
 make all
 ```
-this will build a custom qemu emulator (x86-64) plus the fuzzer and manager.
+this will build a custom qemu emulator (x86-64) plus the fuzzer, a reproducer and manager programs for both of those.
 
 before running the manager, you have to configure how your kernel should be started. you can do that by editing the `cmdline.cfg` file (which already contains an example configuration)
 
 you're completely free in choosing how the kernel should be running. however make sure to have qemu exit on a kernel panic or similar. be careful to use the modified qemu emulator. (located in `./tools/qemu-7.1.0/build/`)
 
-if everything is set up you can start the manager
+if everything is set up you can start the fuzzing manager
 ```
-./manager <no of instances>
+./fuzz_manager <no of instances>
 ```
 you can choose as many instances as your hardware can take.
+you may need to run the fuzzing manager as root to recieve fuzzing stats and log data.
 
 ## logs and crashes
 
