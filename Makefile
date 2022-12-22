@@ -14,11 +14,6 @@ reproducer:
 repro_manager: ./src/repro_manager.cpp
 	$(CXX) ./src/repro_manager.cpp $(CFLAGS) -o repro_manager -Wno-write-strings
 
-initramfs:
-	cd ./kernel/initramfs && find . | cpio -o -H newc > ../initramfs.cpio
-	gzip < ./kernel/initramfs.cpio > ./kernel/initramfs.cpio.gz
-	rm ./kernel/initramfs.cpio
-
 qemu-setup:
 	cd tools/ && \
 	wget https://download.qemu.org/qemu-7.1.0.tar.xz && \
@@ -34,7 +29,7 @@ qemu-setup:
 qemu: qemu-setup
 	cd ./tools/qemu-7.1.0 && make
 
-all: qemu fuzzer fuzz_manager repro_manager initramfs
+all: qemu fuzzer fuzz_manager repro_manager
 	mkdir kernel && mkdir kernel/data
 
 clean: all
