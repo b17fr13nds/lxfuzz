@@ -29,11 +29,12 @@ qemu-setup:
 qemu: qemu-setup
 	cd ./tools/qemu-7.1.0 && make
 
-all: qemu fuzzer fuzz_manager repro_manager
+all: qemu fuzzer fuzz_manager reproducer repro_manager
 	mkdir kernel && mkdir kernel/data
 
-clean: all
+clean: fuzzer fuzz_manager reproducer repro_manager
 	rm fuzzer
 	rm fuzz_manager
+	rm reproducer
 	rm repro_manager
-	rm -r ./tools/qemu*
+	rm -r ./tools/qemu-7.1.0*
