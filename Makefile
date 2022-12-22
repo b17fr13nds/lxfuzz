@@ -37,4 +37,5 @@ clean: fuzzer fuzz_manager reproducer repro_manager
 	rm fuzz_manager
 	rm reproducer
 	rm repro_manager
+	rm -r ./kernel
 	rm -r ./tools/qemu-7.1.0*
