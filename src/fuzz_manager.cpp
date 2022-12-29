@@ -15,7 +15,7 @@
 std::vector<int32_t> instances;
 
 auto print_usage_and_exit(char **argv) -> void {
-  std::cout << argv[0] << ": <instances>" << std::endl;
+  std::cout << argv[0] << ": <instances> <fuzzer options...>" << std::endl;
   exit(0);
 }
 
@@ -47,7 +47,7 @@ auto parse_cmdline(int32_t instance_no) -> const char ** {
   return args;
 }
 
-auto start_instance(int32_t instance_no) -> void {
+auto start_instance(int32_t instance_no, std::string fuzzer_args) -> void {
   int32_t pid{}, input_pipefd[2], output_pipefd[2];
 
   const char **args = parse_cmdline(instance_no);
@@ -78,7 +78,10 @@ auto start_instance(int32_t instance_no) -> void {
     do {
       if(read(output_pipefd[0], &c, 1) == -1) error("read");
     } while(c != '$');
-    if(write(input_pipefd[1], "./fuzzer\n\r", 10) == -1) error("write");
+
+    std::string cmd{"./fuzzer " + fuzzer_args + "\n\r"};
+
+    if(write(input_pipefd[1], cmd.c_str(), cmd.size()) == -1) error("write");
   }
 
   return;
@@ -99,14 +102,27 @@ auto cleanup(int32_t x) -> void {
   exit(0);
 }
 
+auto parse_fuzzer_args(char **start) -> std::string {
+  std::string ret{};
+
+  for(int i{0}; start[i] != NULL; i++) {
+    ret += start[i];
+    ret += "";
+  }
+
+  return ret;
+}
+
 auto main(int32_t argc, char **argv) -> int32_t {
   auto crashes{0};
   mqd_t desc{0};
   struct mq_attr attr{0x0,0x1,sizeof(stats_t),0x0};
+  std::string fuzzer_args{};
 
   std::cout << "welcome to uxfuzz v0.0.1" << std::endl;
 
-  if(argc != 2) print_usage_and_exit(argv);
+  if(argc < 2) print_usage_and_exit(argv);
+  fuzzer_args = parse_fuzzer_args(&argv[2]);
 
   signal(SIGINT, cleanup);
 
@@ -117,7 +133,7 @@ auto main(int32_t argc, char **argv) -> int32_t {
 
   for(auto i{0}; i < std::stoi(argv[1]); i++) {
     std::filesystem::create_directory("./kernel/data/instance" + std::to_string(i));
-    start_instance(i);
+    start_instance(i, fuzzer_args);
   }
 
   std::cout << "instances started; fuzzer ready" << std::endl;
@@ -131,7 +147,7 @@ auto main(int32_t argc, char **argv) -> int32_t {
         std::cout << "instance " << i << " crashed!" << std::endl;
         crashes++;
         save_crash(i);
-        start_instance(i);
+        start_instance(i, fuzzer_args);
         std::cout << "instance " << i << " brought back up!" << std::endl;
       } else {
         if(mq_receive(desc, (char *)&tmp, sizeof(stats_t), 0) == -1) error("mq_receive");

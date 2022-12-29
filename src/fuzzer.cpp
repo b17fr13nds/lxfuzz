@@ -3,10 +3,12 @@
 #include <string>
 #include <random>
 #include <chrono>
-#include <unistd.h>
+#include <fstream>
+#include <sched.h>
 #include <stdio.h>
-#include <sys/types.h>
+#include <unistd.h>
 #include <sys/wait.h>
+#include <sys/types.h>
 #include "fuzzer.h"
 #include "hypercall.h"
 
@@ -207,7 +209,7 @@ auto start(int32_t core, fuzzinfo_t fi) -> void {
   }
 }
 
-auto main() -> int32_t {
+auto spawn_threads(void *unused) -> int {
   auto cores_available = std::thread::hardware_concurrency();
   std::thread *t = new std::thread[cores_available];
   fuzzinfo_t fi(cores_available);
@@ -219,5 +221,43 @@ auto main() -> int32_t {
   std::string x;
   std::cin >> x;
 
+  return 0;
+}
+
+auto main(int argc, char **argv) -> int32_t {
+  void *stack{nullptr};
+  std::fstream f1, f2, f3;
+  pid_t pid{};
+
+  if(argc > 1) {
+    if(std::stoi(argv[1]) == 1) {
+	stack = mmap(NULL, PAGESIZE*4, PROT_READ|PROT_WRITE, MAP_ANON|MAP_PRIVATE, -1, 0);
+	if(stack == (void *)-1) error("mmap");
+	pid = clone(spawn_threads, stack+PAGESIZE*4, CLONE_NEWUSER|SIGCHLD, NULL);
+	if(pid == -1) error("clone");
+
+    	f1.open("/proc/" + std::to_string(pid) + "/setgroups");
+   	 f2.open("/proc/" + std::to_string(pid) + "/uid_map");
+    	f3.open("/proc/" + std::to_string(pid) + "/gid_map");
+
+    	f1.write("deny", 4);
+    	f2.write("0 1000 1", 8);
+    	f3.write("0 1000 1", 8);
+
+    	f1.close();
+    	f2.close();
+    	f3.close();
+
+    	std::string x;
+    	std::cin >> x;
+
+	goto out;
+    }
+  }
+
+
+  spawn_threads(NULL);
+
+out:
   return 0;
 }

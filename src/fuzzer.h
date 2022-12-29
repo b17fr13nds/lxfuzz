@@ -14,6 +14,8 @@
 #define KCOV_TRACE_PC 0
 #define KCOV_TRACE_CMP 1
 
+#define PAGESIZE 0x1000
+
 inline void error(const char *str) {
   perror(str);
   exit(-1);
