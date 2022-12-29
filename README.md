@@ -30,9 +30,9 @@ you're completely free in choosing how the kernel should be running. however mak
 
 if everything is set up you can start the fuzzing manager
 ```
-./fuzz_manager <no of instances>
+./fuzz_manager <no of instances> <fuzzer options...>
 ```
-you can choose as many instances as your hardware can take.
+you can choose as many instances as your hardware can take. as of now, you can specify `1` for fuzzer options if you want to make use of user namespaces.
 you may need to run the fuzzing manager as root to recieve fuzzing stats and log data.
 
 ## logs and crashes
