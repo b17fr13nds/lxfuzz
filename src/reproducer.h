@@ -23,6 +23,6 @@ auto parse_syscall(std::ifstream&) -> prog_t*;
 auto parse_socket(std::ifstream&) -> prog_t*;
 auto parse_sysdevproc(std::ifstream&) -> prog_t*;
 auto parse_next(std::ifstream&) -> prog_t*;
-auto execute_program(prog_t*) -> void;
+auto execute_program(prog_t*) -> pid_t;
 auto start(uint32_t) -> void;
 auto main() -> int32_t;

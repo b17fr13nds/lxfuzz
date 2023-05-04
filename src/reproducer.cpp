@@ -8,6 +8,7 @@
 #include <sys/wait.h>
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <stacktrace>
 #include "reproducer.h"
 
 auto readuntil(std::ifstream &f, std::string what) -> std::string {
@@ -94,6 +95,8 @@ auto parse_sysdevproc(std::ifstream &f) -> prog_t* {
   readuntil(f, ", ");
   ret->prot = std::stoi(readuntil(f, ")"));
 
+  getline(f, tmp, '\n'); f.get();
+
   fd = open(ret->devname.c_str(), ret->prot);
 
   do {
@@ -113,16 +116,17 @@ auto parse_sysdevproc(std::ifstream &f) -> prog_t* {
       readuntil(f, "fd, ");
       PARSE_VALUES(sdpop, ',');
 
-      readuntil(f, ", ");
-      sdpop->size = std::stoi(readuntil(f, ")"));
+      readuntil(f, " ");
+      sdpop->nsize = std::stoi(readuntil(f, ")"));
     } else {
       sdpop->option = 2;
 
       readuntil(f, "fd, ");
       PARSE_VALUES(sdpop, ',');
 
-      readuntil(f, ", ");
-      sdpop->size = std::stoi(readuntil(f, ")"));
+      readuntil(f, " ");
+      tmp = readuntil(f, ")");
+      sdpop->nsize = std::stoi(tmp);
     }
 
     getline(f, tmp, '\n'); f.get();
@@ -159,15 +163,15 @@ auto parse_socket(std::ifstream &f) -> prog_t* {
       PARSE_VALUES(sop, ',');
 
       readuntil(f, " ");
-      sop->size = std::stoi(readuntil(f, ")"));
+      sop->nsize = std::stoi(readuntil(f, ")"));
     } else if(tmp == "write(") {
       sop->option = 1;
 
       readuntil(f, "fd, ");
       PARSE_VALUES(sop, ',');
 
-      readuntil(f, ", ");
-      sop->size = std::stoi(readuntil(f, ")"));
+      readuntil(f, " ");
+      sop->nsize = std::stoi(readuntil(f, ")"));
 
     } else if(tmp == "sendmsg(") {
       sop->option = 2;
@@ -176,7 +180,7 @@ auto parse_socket(std::ifstream &f) -> prog_t* {
       PARSE_VALUES(sop, ',');
 
       readuntil(f, " .iov.len = ");
-      sop->size = std::stoi(readuntil(f, ")"));
+      sop->nsize = std::stoi(readuntil(f, ")"));
 
     } else {
       sop->option = 3;
@@ -212,11 +216,12 @@ auto parse_next(std::ifstream &f) -> prog_t * {
 }
 
 
-auto execute_program(prog_t *program) -> void {
+auto execute_program(prog_t *program) -> pid_t {
   auto pid{fork()};
 
   switch(pid) {
     case 0:
+    alarm(2);
 
     for(auto i{0}; i < program->nops; i++) {
       switch(program->inuse) {
@@ -232,11 +237,14 @@ auto execute_program(prog_t *program) -> void {
       }
     }
 
-    [[fallthrough]];
-    case -1:
+    delete program;
+
     exit(0);
+    case -1:
+    perror("fork");
+    return -1;
     default:
-    return;
+    return pid;
   }
 }
 
@@ -251,7 +259,7 @@ retry:
   while(!f.eof()) {
     readuntil(f, "NEW PROGRAM ");
     program = parse_next(f);
-    execute_program(program);
+    waitpid(execute_program(program), NULL, 0);
     delete program;
   }
 
@@ -260,11 +268,17 @@ retry:
   goto retry;
 }
 
+void print_stacktrace(int x) {
+  std::cout << std::stacktrace::current();
+}
+
 auto main() -> int32_t {
   auto cores_available = std::thread::hardware_concurrency();
   std::thread *t = new std::thread[cores_available];
 
   std::filesystem::current_path("./crash");
+
+  signal(SIGABRT, print_stacktrace);
 
   for(decltype(cores_available) i{0}; i < cores_available; i++) {
       t[i] = std::thread(start, i);
