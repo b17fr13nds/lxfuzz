@@ -4,6 +4,7 @@
 #include <random>
 #include <chrono>
 #include <fstream>
+#include <filesystem>
 #include <sched.h>
 #include <stdio.h>
 #include <unistd.h>
@@ -13,6 +14,7 @@
 #include "hypercall.h"
 
 std::random_device dev;
+std::vector<std::string> virtual_dev_names;
 
 auto get_random(uint64_t min, uint64_t max) -> uint64_t {
   std::mt19937_64 rng(dev());
@@ -29,7 +31,6 @@ auto get_random(uint64_t min, uint64_t max) -> uint64_t {
 
 auto flog_program(prog_t *p, int32_t core) -> void {
   std::string log = "";
-  uint64_t tmp{0};
 
   switch(p->inuse) {
     case 0:
@@ -39,8 +40,9 @@ auto flog_program(prog_t *p, int32_t core) -> void {
       if(p->op.sysc->at(i)->nargs) log += ", ";
       for(uint64_t j{0}; j < p->op.sysc->at(i)->value.size(); j++) {
         log +=  "[v:" + std::to_string(p->op.sysc->at(i)->value.at(j)) + "|d:" + std::to_string(p->op.sysc->at(i)->sinfo.get_deep(j)) + "|n:" + std::to_string(p->op.sysc->at(i)->sinfo.get_last(j)) + "]";
-        if(tmp < p->op.sysc->at(i)->nargno.at(j) && j >= p->op.sysc->at(i)->value.size()-1) log += ", ";
-        tmp = p->op.sysc->at(i)->nargno.at(j);
+        if(j+1 < p->op.sysc->at(i)->value.size()) {
+          if(p->op.sysc->at(i)->nargno.at(j+1) > p->op.sysc->at(i)->nargno.at(j)) log += ", ";
+        }
       }
       log += ");";
       flog(static_cast<uint64_t>(core), log.c_str());
@@ -70,7 +72,7 @@ auto flog_program(prog_t *p, int32_t core) -> void {
       switch(p->op.sdp->at(i)->option) {
         case 1: [[fallthrough]];
         case 2:
-        log += ", " + std::to_string(p->op.sdp->at(i)->size);
+        log += ", " + std::to_string(p->op.sdp->at(i)->nsize);
         break;
       }
       log += ");";
@@ -103,11 +105,11 @@ auto flog_program(prog_t *p, int32_t core) -> void {
       }
       switch(p->op.sock->at(i)->option) {
         case 2:
-        log += ", .iov.len = " + std::to_string(p->op.sock->at(i)->size) + "}, 0);";
+        log += ", .iov.len = " + std::to_string(p->op.sock->at(i)->nsize) + "}, 0);";
         break;
         case 0: [[fallthrough]];
         case 1:
-        log += ", " + std::to_string(p->op.sock->at(i)->size);
+        log += ", " + std::to_string(p->op.sock->at(i)->nsize);
         default:
         log += ");";
         break;
@@ -121,11 +123,13 @@ auto flog_program(prog_t *p, int32_t core) -> void {
   return;
 }
 
-auto execute_program(prog_t *program) -> void {
+auto execute_program(prog_t *program) -> pid_t {
   auto pid{fork()};
 
   switch(pid) {
     case 0:
+    alarm(2);
+    if(setsid() == -1) perror("setsid");
 
     for(auto i{0}; i < program->nops; i++) {
       switch(program->inuse) {
@@ -141,11 +145,14 @@ auto execute_program(prog_t *program) -> void {
       }
     }
 
-    [[fallthrough]];
-    case -1:
+    delete program;
+
     exit(0);
+    case -1:
+    perror("fork");
+    return -1;
     default:
-    return;
+    return pid;
   }
 }
 
@@ -155,7 +162,9 @@ auto start(int32_t core, fuzzinfo_t fi) -> void {
 
   while(1) {
     // generation
-    if(!(fi.get_corpus_count() > 0x1000)) {
+
+    std::cout << "CREATE" << std::endl;
+    if(fi.get_corpus_count() < 1) {
       for(int32_t i{0}; i < 0x10; i++) {
         auto rnd{get_random(0,2)};
 
@@ -174,15 +183,23 @@ auto start(int32_t core, fuzzinfo_t fi) -> void {
       }
     }
 
+    std::cout << "CREATING DONE" << std::endl;
+
     // mutation
     for(int32_t i{0}; i < 0x10; i++) {
       program = fi.get_corpus();
+      if(program == nullptr) break;
+
       flog_program(program, core);
 
+      std::cout << "EXECUTING PROGRAM; CORPUS: " << fi.get_corpus_count() << std::endl;
+
       fi.record_coverage(core);
-      execute_program(program);
+      waitpid(execute_program(program), NULL, 0);
       fstats(fi.get_corpus_count());
       ncovered = fi.stop_recording(core);
+
+      std::cout << "DONE" << std::endl;
 
       prev_ncovered = ncovered;
       prev_addr_covered = fi.get_address(core, ncovered);
@@ -196,7 +213,7 @@ auto start(int32_t core, fuzzinfo_t fi) -> void {
       flog_program(program, core);
 
       fi.record_coverage(core);
-      execute_program(program);
+      waitpid(execute_program(program), NULL, 0);
       fstats(fi.get_corpus_count());
       ncovered = fi.stop_recording(core);
 
@@ -206,6 +223,8 @@ auto start(int32_t core, fuzzinfo_t fi) -> void {
         delete program;
       }
     }
+
+    std::cout << "LOOP NEXT IT." << std::endl;
   }
 }
 
@@ -228,30 +247,45 @@ auto main(int argc, char **argv) -> int32_t {
   void *stack{nullptr};
   std::fstream f1, f2, f3;
   pid_t pid{};
+  std::string path;
+
+  // prepare filenames for virtual device fuzzing operations
+
+  path = "/dev";
+  for(auto& entry : std::filesystem::directory_iterator(path))
+    virtual_dev_names.push_back(entry.path());
+
+  path = "/proc";
+  for(auto& entry : std::filesystem::directory_iterator(path))
+    virtual_dev_names.push_back(entry.path());
+
+  path = "/sys/class";
+  for(auto& entry : std::filesystem::recursive_directory_iterator(path))
+    virtual_dev_names.push_back(entry.path());
 
   if(argc > 1) {
     if(std::stoi(argv[1]) == 1) {
-	stack = mmap(NULL, PAGESIZE*4, PROT_READ|PROT_WRITE, MAP_ANON|MAP_PRIVATE, -1, 0);
-	if(stack == (void *)-1) error("mmap");
-	pid = clone(spawn_threads, stack+PAGESIZE*4, CLONE_NEWUSER|SIGCHLD, NULL);
-	if(pid == -1) error("clone");
+        stack = mmap(NULL, PAGESIZE*4, PROT_READ|PROT_WRITE, MAP_ANON|MAP_PRIVATE, -1, 0);
+        if(stack == (void *)-1) error("mmap");
+        pid = clone(spawn_threads, stack+PAGESIZE*4, CLONE_NEWUSER|SIGCHLD, NULL);
+        if(pid == -1) error("clone");
 
-    	f1.open("/proc/" + std::to_string(pid) + "/setgroups");
-   	 f2.open("/proc/" + std::to_string(pid) + "/uid_map");
-    	f3.open("/proc/" + std::to_string(pid) + "/gid_map");
+        f1.open("/proc/" + std::to_string(pid) + "/setgroups");
+        f2.open("/proc/" + std::to_string(pid) + "/uid_map");
+        f3.open("/proc/" + std::to_string(pid) + "/gid_map");
 
-    	f1.write("deny", 4);
-    	f2.write("0 1000 1", 8);
-    	f3.write("0 1000 1", 8);
+        f1.write("deny", 4);
+        f2.write("0 1000 1", 8);
+        f3.write("0 1000 1", 8);
 
-    	f1.close();
-    	f2.close();
-    	f3.close();
+        f1.close();
+        f2.close();
+        f3.close();
 
-    	std::string x;
-    	std::cin >> x;
+        std::string x;
+        std::cin >> x;
 
-	goto out;
+        goto out;
     }
   }
 

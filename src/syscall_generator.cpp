@@ -14,7 +14,6 @@ auto create_syscall() -> syscall_t* {
   sysc->sysno = get_random(0,332);
 
   while(cnt < nargs) {
-    sysc->nargno.push_back(nargs);
     curr_rand = get_random(0,max_struct_rand);
     structure_deep = static_cast<uint64_t>(curr_rand);
 
@@ -39,11 +38,16 @@ auto create_syscall() -> syscall_t* {
 
     switch(sysc->sinfo.get_deep(sysc->sinfo.get_size()-1)) {
       case 0:
+      if(saved > 0) {
+        sysc->nargno.at(sysc->nargno.size()-1) = cnt;
+      }
       saved = 0;
       cnt++;
       break;
       case 1:
-      if(sysc->sinfo.get_last(sysc->sinfo.structinfo.size()-1) == saved) break;
+      if(sysc->sinfo.get_size() > 1) {
+        if(sysc->sinfo.get_last(sysc->sinfo.structinfo.size()-1) == saved) break;
+      }
       saved = sysc->sinfo.get_last(sysc->sinfo.structinfo.size()-1);
       cnt++;
       break;
@@ -54,6 +58,7 @@ auto create_syscall() -> syscall_t* {
       cnt++;
       break;
     }
+    sysc->nargno.push_back(cnt);
   }
 
   sysc->nargs = nargs;

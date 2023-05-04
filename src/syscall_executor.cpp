@@ -16,15 +16,17 @@ auto exec_syscall(uint16_t nr) -> void {
 
 auto execute(syscall_t* sysc) -> void {
   uint64_t *args = new uint64_t[sysc->nargs+2];
-  size_t tmp{0};
 
   std::vector<size_t> size;
   std::vector<size_t> offsets;
   std::vector<size_t> perstruct_cnt;
 
+  std::vector<void*> ptrs;
+
   perstruct_cnt.push_back(0);
 
   for(uint64_t i{0}; i < sysc->value.size(); i++) {
+    // value not in a structure
     if(!sysc->sinfo.get_deep(i)) {
 
       if(i && sysc->sinfo.get_deep(i) < sysc->sinfo.get_deep(i-1)) {
@@ -37,6 +39,7 @@ auto execute(syscall_t* sysc) -> void {
       }
       SETVAL(args, sysc->value);
 
+    // value in deeper structure than before
     } else if(i && sysc->sinfo.get_deep(i) > sysc->sinfo.get_deep(i-1)) {
 
       if(sysc->sinfo.get_deep(i-1)) {
@@ -47,11 +50,13 @@ auto execute(syscall_t* sysc) -> void {
       }
       SETVAL(args, sysc->value);
 
+    // value in same structure depth than before
     } else if(i && sysc->sinfo.get_deep(i) == sysc->sinfo.get_deep(i-1)) {
 
       REALLOC_STRUCT(args);
       SETVAL(args, sysc->value);
 
+    // value in less deep structure than before
     } else if(i && sysc->sinfo.get_deep(i) < sysc->sinfo.get_deep(i-1)) {
 
       for(uint64_t j{0}; j < sysc->sinfo.get_deep(i-1) - sysc->sinfo.get_deep(i); j++) {
@@ -61,11 +66,13 @@ auto execute(syscall_t* sysc) -> void {
         perstruct_cnt.pop_back();
       }
 
+      // value in same structure than values before i-1
       if(sysc->sinfo.get(i, sysc->sinfo.get_deep(i)) == sysc->sinfo.get(i-1, sysc->sinfo.get_deep(i))) {
 
         REALLOC_STRUCT(args);
         SETVAL(args, sysc->value);
 
+      // value in same structure depth than values before i-1, but new struct
       } else if(sysc->sinfo.get(i, sysc->sinfo.get_deep(i)) > sysc->sinfo.get(i-1, sysc->sinfo.get_deep(i))) {
 
         REALLOC_STRUCT(args);
@@ -75,6 +82,7 @@ auto execute(syscall_t* sysc) -> void {
         SETVAL(args, sysc->value);
 
       }
+    // handle other scenarios
     } else if(sysc->sinfo.get_deep(i)) {
 
       for(uint64_t j{0}; j < sysc->sinfo.get_deep(i); j++) {
@@ -107,6 +115,10 @@ auto execute(syscall_t* sysc) -> void {
     case 6:
     exec_syscall(sysc->sysno, args[0], args[1], args[2], args[3], args[4], args[5]);
     break;
+  }
+
+  for(auto e : ptrs) {
+    delete e;
   }
 
   delete [] args;

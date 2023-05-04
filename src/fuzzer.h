@@ -71,32 +71,32 @@ public:
 
 class sysdevproc_op_t {
 public:
-  sysdevproc_op_t() : fd{0}, option{0}, request{0}, size{0} {};
+  sysdevproc_op_t() : fd{0}, nsize{0}, option{0}, request{0} {};
   ~sysdevproc_op_t() {
     close(fd);
   }
 
   int32_t fd;
+  uint16_t nsize;
   uint8_t option;
   uint64_t request;
   std::vector<uint64_t> value;
   structinfo_t sinfo;
-  uint64_t size;
 };
 
 class socket_op_t {
 public:
-  socket_op_t() : fd{0}, option{0}, request{0}, size{0}, optname{0} {};
+  socket_op_t() : fd{0}, nsize{0}, option{0}, request{0}, optname{0} {};
   ~socket_op_t() {
     close(fd);
   }
 
   int32_t fd;
+  uint16_t nsize;
   uint8_t option;
   uint64_t request;
   std::vector<uint64_t> value;
   structinfo_t sinfo;
-  uint64_t size;
   int32_t optname;
 };
 
@@ -106,12 +106,21 @@ public:
   ~prog_t() {
     switch(inuse) {
       case 0:
+      for(unsigned long i{0}; i < op.sysc->size(); i++) {
+        delete op.sysc->at(i);
+      }
       delete op.sysc;
       break;
       case 1:
+      for(unsigned long i{0}; i < op.sdp->size(); i++) {
+        delete op.sdp->at(i);
+      }
       delete op.sdp;
       break;
       case 2:
+      for(unsigned long i{0}; i < op.sock->size(); i++) {
+        delete op.sock->at(i);
+      }
       delete op.sock;
       break;
     }
@@ -175,8 +184,14 @@ public:
   }
 
   virtual prog_t *get_corpus() {
-    prog_t *tmp = corpus.back();
-    corpus.pop_back();
+    prog_t *tmp;
+
+    if(!corpus.size()) {
+      tmp = nullptr;
+    } else {
+      tmp = corpus.back();
+      corpus.pop_back();
+    }
     return tmp;
   }
 
@@ -191,19 +206,35 @@ public:
 }
 
 #define REALLOC_STRUCT(x) {\
-  tmp = offsets.back();\
-  offsets.pop_back();\
-  size.at(size.size()-1) += 8;\
-  deref(x, &offsets)[perstruct_cnt.at(perstruct_cnt.size()-2)-1] = reinterpret_cast<uint64_t>(realloc(reinterpret_cast<void*>(deref(x, &offsets)[perstruct_cnt.at(perstruct_cnt.size()-2)-1]),size.at(size.size()-1)));\
-  offsets.push_back(tmp);\
+  {\
+    size_t tmp{offsets.back()};\
+    offsets.pop_back();\
+    size.at(size.size()-1) += 8;\
+    auto ptr{reinterpret_cast<void*>(deref(x, &offsets)[perstruct_cnt.at(perstruct_cnt.size()-2)-1])};\
+    size_t i{0};\
+    for(; i < ptrs.size(); i++) {\
+      if(ptrs.at(i) == ptr) {\
+        ptrs.at(i) = realloc(reinterpret_cast<void*>(ptr),size.at(size.size()-1));\
+        break;\
+      }\
+    }\
+    deref(x, &offsets)[perstruct_cnt.at(perstruct_cnt.size()-2)-1] = reinterpret_cast<uint64_t>(ptrs.at(i));\
+    offsets.push_back(tmp);\
+  }\
 }
 
 #define ALLOC_STRUCT(x) {\
-  deref(x, &offsets)[perstruct_cnt.back()] = reinterpret_cast<uint64_t>(malloc(8));\
-  offsets.push_back(perstruct_cnt.back());\
-  perstruct_cnt.back()++;\
-  perstruct_cnt.push_back(0);\
-  size.push_back(8);\
+  {\
+    bool existing{false};\
+    auto buf{malloc(8)};\
+    deref(x, &offsets)[perstruct_cnt.back()] = reinterpret_cast<uint64_t>(buf);\
+    for(auto e : ptrs) if(e == buf) existing = true;\
+    if(!existing) ptrs.push_back(buf);\
+    offsets.push_back(perstruct_cnt.back());\
+    perstruct_cnt.back()++;\
+    perstruct_cnt.push_back(0);\
+    size.push_back(8);\
+  }\
 }
 
 template <typename T>
@@ -226,9 +257,11 @@ inline auto deref(uint64_t *in, std::vector<size_t>* offsets) -> uint64_t* {
   return tmp;
 }
 
+extern std::vector<std::string> virtual_dev_names;
+
 auto get_random(uint64_t, uint64_t) -> uint64_t;
 auto flog_program(prog_t *, int32_t) -> void;
-auto execute_program(prog_t*) -> void;
+auto execute_program(prog_t*) -> pid_t;
 
 auto mutate_prog(prog_t *p) -> void;
 
