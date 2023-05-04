@@ -1,6 +1,6 @@
-CFLAGS = -O3 -Wall -lpthread -static -lrt -Wno-unused-result -g
-CXX = g++ -std=c++2a
-TARGET_CXX = g++ -std=c++2a
+CFLAGS = -O3 -Wall -lpthread -static -lrt -Wno-unused-result -g -lstdc++_libbacktrace -Wdelete-incomplete
+CXX = g++ -std=c++23
+TARGET_CXX = g++ -std=c++23
 
 fuzzer: ./src/fuzzer.cpp
 	$(TARGET_CXX) ./src/fuzzer.cpp ./src/mutator.cpp ./src/syscall_generator.cpp ./src/syscall_executor.cpp ./src/sysdevproc_generator.cpp ./src/sysdevproc_executor.cpp ./src/socket_generator.cpp ./src/socket_executor.cpp ./src/hypercall.c -o ./fuzzer $(CFLAGS) -Wno-pointer-arith
@@ -37,5 +37,5 @@ clean: fuzzer fuzz_manager reproducer repro_manager
 	rm fuzz_manager
 	rm reproducer
 	rm repro_manager
-	rm -r ./kernel
+	rm -r ./kernel/data
 	rm -r ./tools/qemu-7.1.0*
