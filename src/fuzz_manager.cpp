@@ -126,7 +126,7 @@ auto main(int32_t argc, char **argv) -> int32_t {
 
   signal(SIGINT, cleanup);
 
-  desc = mq_open("/fuzzer", O_RDONLY|O_CREAT, S_IRUSR|S_IWOTH, &attr);
+  desc = mq_open("/fuzzer", O_RDONLY|O_CREAT, S_IRWXU|S_IRWXG|S_IRWXO, &attr);
   if(desc == -1) error("mq_open");
 
   std::cout << "starting instances" << std::endl;
