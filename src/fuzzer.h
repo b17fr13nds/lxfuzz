@@ -1,5 +1,6 @@
 #include <vector>
 #include <variant>
+#include <cstdint>
 #include <fcntl.h>
 #include <unistd.h>
 #include <sys/mman.h>
