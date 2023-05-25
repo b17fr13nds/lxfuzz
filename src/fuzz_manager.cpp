@@ -82,6 +82,9 @@ auto start_instance(int32_t instance_no, std::string fuzzer_args) -> void {
     std::string cmd{"./fuzzer " + fuzzer_args + "\n\r"};
 
     if(write(input_pipefd[1], cmd.c_str(), cmd.size()) == -1) error("write");
+    
+    close(input_pipefd[1]);
+    close(output_pipefd[0]);
   }
 
   return;

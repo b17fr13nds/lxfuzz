@@ -163,7 +163,6 @@ auto start(int32_t core, fuzzinfo_t fi) -> void {
   while(1) {
     // generation
 
-    std::cout << "CREATE" << std::endl;
     if(fi.get_corpus_count() < 1) {
       for(int32_t i{0}; i < 0x10; i++) {
         auto rnd{get_random(0,2)};
@@ -183,8 +182,6 @@ auto start(int32_t core, fuzzinfo_t fi) -> void {
       }
     }
 
-    std::cout << "CREATING DONE" << std::endl;
-
     // mutation
     for(int32_t i{0}; i < 0x10; i++) {
       program = fi.get_corpus();
@@ -192,14 +189,10 @@ auto start(int32_t core, fuzzinfo_t fi) -> void {
 
       flog_program(program, core);
 
-      std::cout << "EXECUTING PROGRAM; CORPUS: " << fi.get_corpus_count() << std::endl;
-
       fi.record_coverage(core);
       waitpid(execute_program(program), NULL, 0);
       fstats(fi.get_corpus_count());
       ncovered = fi.stop_recording(core);
-
-      std::cout << "DONE" << std::endl;
 
       prev_ncovered = ncovered;
       prev_addr_covered = fi.get_address(core, ncovered);
@@ -223,8 +216,6 @@ auto start(int32_t core, fuzzinfo_t fi) -> void {
         delete program;
       }
     }
-
-    std::cout << "LOOP NEXT IT." << std::endl;
   }
 }
 
