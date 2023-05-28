@@ -9,11 +9,13 @@ std::vector<uint64_t> v;\
         op->sinfo.push(v);\
 \
         int d = std::stoi(readuntil(f, "|"));\
+        readuntil(f, "n:");\
+        int n = std::stoi(readuntil(f, "]"));\
 \
-        for(int i{0}; i < d+1; i++) {\
-            op->sinfo.push_end(d);\
+        for(int i{0}; i < d; i++) {\
+            op->sinfo.push_end(1);\
         }\
-        readuntil(f, "]");\
+        op->sinfo.push_end(n);\
     } while(static_cast<char>(f.peek()) != stop);\
 }
 
