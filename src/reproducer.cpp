@@ -14,6 +14,7 @@ auto readuntil(std::ifstream &f, std::string what) -> std::string {
   std::string ret;
 
   do {
+    if(f.eof()) return "";
     ret += f.get();
   } while(ret.find(what) == std::string::npos);
 
@@ -24,6 +25,7 @@ auto readuntil(std::ifstream &f, std::string what1, std::string what2) -> std::s
   std::string ret;
 
   do {
+    if(f.eof()) return "";
     ret += f.get();
   } while(ret.find(what1) == std::string::npos && ret.find(what2) == std::string::npos);
 
@@ -34,7 +36,6 @@ auto parse_syscall(std::ifstream &f) -> prog_t* {
   prog_t *ret = new prog_t;
   syscall_t *sysc;
   std::string tmp;
-  uint64_t saved{0};
 
   ret->inuse = 0;
   ret->op.sysc = new std::vector<syscall_t*>;
@@ -48,27 +49,7 @@ auto parse_syscall(std::ifstream &f) -> prog_t* {
 
     if(f.get() == ';') goto out;
 
-    PARSE_VALUES(sysc, ')');
-
-    for(uint64_t i{0}; i < sysc->sinfo.get_size(); i++) {
-      switch(sysc->sinfo.get_deep(i)) {
-        case 0:
-        saved = 0;
-        sysc->nargs++;
-        break;
-        case 1:
-        if(sysc->sinfo.get_last(i) == saved) break;
-        saved = sysc->sinfo.get_last(i);
-        sysc->nargs++;
-        break;
-        default:
-        if(i > 1) {
-          if(sysc->sinfo.get_deep(i-1) != 0) break;
-        } else break;
-        sysc->nargs++;
-        break;
-      }
-    }
+    PARSE_VALUES_SYSCALL(sysc, ')');
 
 out:
     getline(f, tmp, '\n'); f.get();
@@ -90,9 +71,10 @@ auto parse_sysdevproc(std::ifstream &f) -> prog_t* {
   readuntil(f, "(\"");
   ret->devname = readuntil(f, "\"");
   ret->devname.pop_back();
-
   readuntil(f, ", ");
   ret->prot = std::stoi(readuntil(f, ")"));
+
+  getline(f, tmp, '\n'); f.get();
 
   fd = open(ret->devname.c_str(), ret->prot);
 
@@ -113,16 +95,17 @@ auto parse_sysdevproc(std::ifstream &f) -> prog_t* {
       readuntil(f, "fd, ");
       PARSE_VALUES(sdpop, ',');
 
-      readuntil(f, ", ");
-      sdpop->size = std::stoi(readuntil(f, ")"));
+      readuntil(f, " ");
+      sdpop->nsize = std::stoi(readuntil(f, ")"));
     } else {
       sdpop->option = 2;
 
       readuntil(f, "fd, ");
       PARSE_VALUES(sdpop, ',');
 
-      readuntil(f, ", ");
-      sdpop->size = std::stoi(readuntil(f, ")"));
+      readuntil(f, " ");
+      tmp = readuntil(f, ")");
+      sdpop->nsize = std::stoi(tmp);
     }
 
     getline(f, tmp, '\n'); f.get();
@@ -144,6 +127,9 @@ auto parse_socket(std::ifstream &f) -> prog_t* {
   readuntil(f, "(");
   ret->domain = std::stoi(readuntil(f, ","));
   ret->type = std::stoi(readuntil(f, ","));
+
+  getline(f, tmp, '\n'); f.get();
+
   fd = socket(ret->domain, ret->type, 0);
 
   do {
@@ -159,15 +145,15 @@ auto parse_socket(std::ifstream &f) -> prog_t* {
       PARSE_VALUES(sop, ',');
 
       readuntil(f, " ");
-      sop->size = std::stoi(readuntil(f, ")"));
+      sop->nsize = std::stoi(readuntil(f, ")"));
     } else if(tmp == "write(") {
       sop->option = 1;
 
       readuntil(f, "fd, ");
       PARSE_VALUES(sop, ',');
 
-      readuntil(f, ", ");
-      sop->size = std::stoi(readuntil(f, ")"));
+      readuntil(f, " ");
+      sop->nsize = std::stoi(readuntil(f, ")"));
 
     } else if(tmp == "sendmsg(") {
       sop->option = 2;
@@ -176,7 +162,7 @@ auto parse_socket(std::ifstream &f) -> prog_t* {
       PARSE_VALUES(sop, ',');
 
       readuntil(f, " .iov.len = ");
-      sop->size = std::stoi(readuntil(f, ")"));
+      sop->nsize = std::stoi(readuntil(f, ")"));
 
     } else {
       sop->option = 3;
@@ -202,8 +188,10 @@ auto parse_next(std::ifstream &f) -> prog_t * {
     ret = parse_syscall(f);
   } else if(tmp == "(sysdevproc)") {
     ret = parse_sysdevproc(f);
-  } else {
+  } else if(tmp == "(socket)") {
     ret = parse_socket(f);
+  } else{
+    return NULL;
   }
 
   getline(f, tmp, '\n'); f.get();
@@ -212,11 +200,13 @@ auto parse_next(std::ifstream &f) -> prog_t * {
 }
 
 
-auto execute_program(prog_t *program) -> void {
+auto execute_program(prog_t *program) -> pid_t {
   auto pid{fork()};
 
   switch(pid) {
     case 0:
+    alarm(2);
+    if(setsid() == -1) perror("setsid");
 
     for(auto i{0}; i < program->nops; i++) {
       switch(program->inuse) {
@@ -232,11 +222,14 @@ auto execute_program(prog_t *program) -> void {
       }
     }
 
-    [[fallthrough]];
-    case -1:
+    delete program;
+
     exit(0);
+    case -1:
+    perror("fork");
+    return -1;
     default:
-    return;
+    return pid;
   }
 }
 
@@ -250,8 +243,8 @@ retry:
 
   while(!f.eof()) {
     readuntil(f, "NEW PROGRAM ");
-    program = parse_next(f);
-    execute_program(program);
+    if((program = parse_next(f)) == NULL) continue;
+    waitpid(execute_program(program), NULL, 0);
     delete program;
   }
 

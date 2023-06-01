@@ -4,12 +4,13 @@
 #include "fuzzer.h"
 
 auto execute(sysdevproc_op_t* sdpop) -> void {
-  uint64_t arg{};
-  size_t tmp{0};
+  uint64_t *args = new uint64_t[sdpop->nsize+2];
 
   std::vector<size_t> size;
   std::vector<size_t> offsets;
   std::vector<size_t> perstruct_cnt;
+
+  std::vector<void*> ptrs;
 
   perstruct_cnt.push_back(0);
 
@@ -24,22 +25,22 @@ auto execute(sysdevproc_op_t* sdpop) -> void {
           perstruct_cnt.pop_back();
         }
       }
-      SETVAL(&arg, sdpop->value);
+      SETVAL(args, sdpop->value);
 
     } else if(i && sdpop->sinfo.get_deep(i) > sdpop->sinfo.get_deep(i-1)) {
 
       if(sdpop->sinfo.get_deep(i-1)) {
-        REALLOC_STRUCT(&arg);
+        REALLOC_STRUCT(args);
       }
       for(uint64_t j{0}; j < sdpop->sinfo.get_deep(i) - sdpop->sinfo.get_deep(i-1); j++) {
-        ALLOC_STRUCT(&arg);
+        ALLOC_STRUCT(args);
       }
-      SETVAL(&arg, sdpop->value);
+      SETVAL(args, sdpop->value);
 
     } else if(i && sdpop->sinfo.get_deep(i) == sdpop->sinfo.get_deep(i-1)) {
 
-      REALLOC_STRUCT(&arg);
-      SETVAL(&arg, sdpop->value);
+      REALLOC_STRUCT(args);
+      SETVAL(args, sdpop->value);
 
     } else if(i && sdpop->sinfo.get_deep(i) < sdpop->sinfo.get_deep(i-1)) {
 
@@ -52,39 +53,46 @@ auto execute(sysdevproc_op_t* sdpop) -> void {
 
       if(sdpop->sinfo.get(i, sdpop->sinfo.get_deep(i)) == sdpop->sinfo.get(i-1, sdpop->sinfo.get_deep(i))) {
 
-        REALLOC_STRUCT(&arg);
-        SETVAL(&arg, sdpop->value);
+        REALLOC_STRUCT(args);
+        SETVAL(args, sdpop->value);
 
       } else if(sdpop->sinfo.get(i, sdpop->sinfo.get_deep(i)) > sdpop->sinfo.get(i-1, sdpop->sinfo.get_deep(i))) {
 
-        REALLOC_STRUCT(&arg);
+        REALLOC_STRUCT(args);
         for(uint64_t j{0}; j < sdpop->sinfo.get_deep(i) - sdpop->sinfo.get_deep(i-1); j++) {
-          ALLOC_STRUCT(&arg);
+          ALLOC_STRUCT(args);
         }
-        SETVAL(&arg, sdpop->value);
+        SETVAL(args, sdpop->value);
 
       }
     } else if(sdpop->sinfo.get_deep(i)) {
 
       for(uint64_t j{0}; j < sdpop->sinfo.get_deep(i); j++) {
-        ALLOC_STRUCT(&arg);
+        ALLOC_STRUCT(args);
       }
-      SETVAL(&arg, sdpop->value);
+      SETVAL(args, sdpop->value);
 
     }
   }
 
   switch(sdpop->option) {
     case 0:
-    ioctl(sdpop->fd, sdpop->request, &arg);
+    ioctl(sdpop->fd, sdpop->request, args);
     break;
     case 1:
-    read(sdpop->fd, &arg, sdpop->size);
+    break;
+    read(sdpop->fd, args, sdpop->nsize);
     break;
     case 2:
-    write(sdpop->fd, &arg, sdpop->size);
+    write(sdpop->fd, args, sdpop->nsize);
     break;
   }
+
+  for(auto e : ptrs) {
+    delete e;
+  }
+
+  delete [] args;
 
   return;
 }

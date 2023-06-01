@@ -23,25 +23,22 @@ auto open_socket(prog_t *p) -> int {
 }
 
 auto create_socketop() -> socket_op_t* {
-  int32_t max_struct_rand{1}, curr_rand{0};
-  uint64_t structure_deep{0};
-  std::vector<uint64_t> tmp;
+  int32_t nsize{static_cast<int32_t>(get_random(1,6))}, cnt{0}, max_struct_rand{1}, curr_rand{0};
+  unsigned long saved{0}, structure_deep{0};
+  std::vector<unsigned long> tmp;
 
   socket_op_t *sop = new socket_op_t;
 
-  sop->option = get_random(0,3);
+  sop->option = get_random(0,2);
 
-  while(1) {
+  while(cnt < nsize) {
     curr_rand = get_random(0,max_struct_rand);
-    structure_deep = curr_rand;
+    structure_deep = static_cast<uint64_t>(curr_rand);
 
     sop->value.push_back(get_random(0,0xffffffffffffffff));
-    if(sop->option != 3 && !curr_rand) {
-      sop->size += 8;
-      if(sop->option == 0) {
+    if(sop->option == 0) {
         sop->optname = get_random(0,0xffffffffffffffff);
       }
-    }
     if(curr_rand == max_struct_rand) {
       max_struct_rand++;
     } else if(max_struct_rand > 1) {
@@ -60,9 +57,26 @@ auto create_socketop() -> socket_op_t* {
       }
     }
 
-    if(!sop->sinfo.get_deep(sop->sinfo.get_size()-1)) break;
+    switch(sop->sinfo.get_deep(sop->sinfo.get_size()-1)) {
+      case 0:
+      saved = 0;
+      cnt++;
+      break;
+      case 1:
+      if(sop->sinfo.get_last(sop->sinfo.structinfo.size()-1) == saved) break;
+      saved = sop->sinfo.get_last(sop->sinfo.structinfo.size()-1);
+      cnt++;
+      break;
+      default:
+      if(sop->sinfo.get_size()-1 > 1) {
+        if(sop->sinfo.get_deep(sop->sinfo.get_size()-2) != 0) break;
+      } else break;
+      cnt++;
+      break;
+    }
   }
 
+  sop->nsize = nsize;
   return sop;
 }
 

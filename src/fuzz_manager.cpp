@@ -82,6 +82,9 @@ auto start_instance(int32_t instance_no, std::string fuzzer_args) -> void {
     std::string cmd{"./fuzzer " + fuzzer_args + "\n\r"};
 
     if(write(input_pipefd[1], cmd.c_str(), cmd.size()) == -1) error("write");
+    
+    close(input_pipefd[1]);
+    close(output_pipefd[0]);
   }
 
   return;
@@ -126,7 +129,7 @@ auto main(int32_t argc, char **argv) -> int32_t {
 
   signal(SIGINT, cleanup);
 
-  desc = mq_open("/fuzzer", O_RDONLY|O_CREAT, S_IRUSR|S_IWOTH, &attr);
+  desc = mq_open("/fuzzer", O_RDONLY|O_CREAT, S_IRWXU|S_IRWXG|S_IRWXO, &attr);
   if(desc == -1) error("mq_open");
 
   std::cout << "starting instances" << std::endl;
