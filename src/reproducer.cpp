@@ -14,6 +14,7 @@ auto readuntil(std::ifstream &f, std::string what) -> std::string {
   std::string ret;
 
   do {
+    if(f.eof()) return "";
     ret += f.get();
   } while(ret.find(what) == std::string::npos);
 
@@ -24,6 +25,7 @@ auto readuntil(std::ifstream &f, std::string what1, std::string what2) -> std::s
   std::string ret;
 
   do {
+    if(f.eof()) return "";
     ret += f.get();
   } while(ret.find(what1) == std::string::npos && ret.find(what2) == std::string::npos);
 
@@ -186,8 +188,10 @@ auto parse_next(std::ifstream &f) -> prog_t * {
     ret = parse_syscall(f);
   } else if(tmp == "(sysdevproc)") {
     ret = parse_sysdevproc(f);
-  } else {
+  } else if(tmp == "(socket)") {
     ret = parse_socket(f);
+  } else{
+    return NULL;
   }
 
   getline(f, tmp, '\n'); f.get();
@@ -238,12 +242,10 @@ retry:
   f.open("log_t" + std::to_string(core));
 
   while(!f.eof()) {
-    std::cout << "AAA" << std::endl;
     readuntil(f, "NEW PROGRAM ");
-    program = parse_next(f);
+    if((program = parse_next(f)) == NULL) continue;
     waitpid(execute_program(program), NULL, 0);
     delete program;
-    std::cout << "AAAX" << std::endl;
   }
 
   f.close();
