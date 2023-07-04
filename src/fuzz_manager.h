@@ -11,7 +11,8 @@ inline void error(const char *str) {
 
 auto print_usage_and_exit(char **) -> void;
 auto parse_cmdline(int32_t) -> const char **;
-auto start_instance(int32_t) -> void;
+auto start_instance(int32_t, std::string) -> void;
 auto check_if_alive(int32_t) -> bool;
 auto save_crash(int32_t) -> void;
 auto cleanup(int32_t) -> void;
+auto parse_fuzzer_args(char **) -> std::string;

@@ -16,7 +16,7 @@ std::vector<int32_t> instance_pid;
 std::vector<int32_t> instance_crashes;
 
 auto print_usage_and_exit(char **argv) -> void {
-  std::cout << argv[0] << ": <instance_pid> <fuzzer options...>" << std::endl;
+  std::cout << argv[0] << ": <instances> <fuzzer options...>" << std::endl;
   exit(0);
 }
 

@@ -52,4 +52,4 @@ auto parse_sysdevproc(std::ifstream&) -> prog_t*;
 auto parse_next(std::ifstream&) -> prog_t*;
 auto execute_program(prog_t*) -> pid_t;
 auto start(uint32_t) -> void;
-auto main() -> int32_t;
+auto main(int, char **) -> int32_t;
