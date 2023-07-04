@@ -12,10 +12,11 @@
 #include <sys/wait.h>
 #include "fuzz_manager.h"
 
-std::vector<int32_t> instances;
+std::vector<int32_t> instance_pid;
+std::vector<int32_t> instance_crashes;
 
 auto print_usage_and_exit(char **argv) -> void {
-  std::cout << argv[0] << ": <instances> <fuzzer options...>" << std::endl;
+  std::cout << argv[0] << ": <instance_pid> <fuzzer options...>" << std::endl;
   exit(0);
 }
 
@@ -69,7 +70,7 @@ auto start_instance(int32_t instance_no, std::string fuzzer_args) -> void {
     execve(args[0], const_cast<char * const *>(args), NULL);
     exit(0);
     default:
-    if(static_cast<uint64_t>(instance_no) < instances.size()) instances.at(instance_no) = pid; else instances.push_back(pid);
+    if(static_cast<uint64_t>(instance_no) < instance_pid.size()) instance_pid.at(instance_no) = pid; else instance_pid.push_back(pid);
 
     close(input_pipefd[0]);
     close(output_pipefd[1]);
@@ -91,12 +92,12 @@ auto start_instance(int32_t instance_no, std::string fuzzer_args) -> void {
 }
 
 auto check_if_alive(int32_t idx) -> bool {
-  if(!waitpid(instances.at(idx), NULL, WNOHANG)) return true;
+  if(!waitpid(instance_pid.at(idx), NULL, WNOHANG)) return true;
   return false;
 }
 
 auto save_crash(int32_t instance_no) -> void {
-  std::filesystem::copy("./kernel/data/instance" + std::to_string(instance_no), "./kernel/data/instance" + std::to_string(instance_no) + "_crash"); 
+  std::filesystem::copy("./kernel/data/instance" + std::to_string(instance_no), "./kernel/data/instance" + std::to_string(instance_no) + "_crash" + std::to_string(instance_crashes.at(instance_no))); 
 }
 
 auto cleanup(int32_t x) -> void {
@@ -129,31 +130,41 @@ auto main(int32_t argc, char **argv) -> int32_t {
 
   signal(SIGINT, cleanup);
 
-  desc = mq_open("/fuzzer", O_RDONLY|O_CREAT, S_IRWXU|S_IRWXG|S_IRWXO, &attr);
+  desc = mq_open("/fuzzer", O_RDONLY|O_CREAT|O_NONBLOCK, S_IRWXU|S_IRWXG|S_IRWXO, &attr);
   if(desc == -1) error("mq_open");
 
-  std::cout << "starting instances" << std::endl;
+  std::cout << "starting instance" << std::endl;
 
   for(auto i{0}; i < std::stoi(argv[1]); i++) {
     std::filesystem::create_directory("./kernel/data/instance" + std::to_string(i));
     start_instance(i, fuzzer_args);
+    instance_crashes.push_back(0);
   }
 
-  std::cout << "instances started; fuzzer ready" << std::endl;
+  std::cout << "instance started; fuzzer ready" << std::endl;
   stats_t tmp{0}, tot{0};
 
   while(1) {
     tot.execs_per_sec = 0;
 
+retry:
     for(auto i{0}; i < std::stoi(argv[1]); i++) {
       if(!check_if_alive(i)) {
         std::cout << "instance " << i << " crashed!" << std::endl;
-        crashes++;
+
         save_crash(i);
+
+        for (const auto& e : std::filesystem::directory_iterator("./kernel/data/instance" + std::to_string(i))) 
+          std::filesystem::remove_all(e.path());
+
         start_instance(i, fuzzer_args);
+
+        crashes++;
+        instance_crashes.at(i)++;
+
         std::cout << "instance " << i << " brought back up!" << std::endl;
       } else {
-        if(mq_receive(desc, (char *)&tmp, sizeof(stats_t), 0) == -1) error("mq_receive");
+        if(mq_receive(desc, (char *)&tmp, sizeof(stats_t), 0) == -1) goto retry;
 
         tot.total_execs += tmp.total_execs;
         tot.execs_per_sec += tmp.execs_per_sec;
