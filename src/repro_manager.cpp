@@ -69,7 +69,7 @@ auto start_instance() -> void {
     do {
       if(read(output_pipefd[0], &c, 1) == -1) error("read");
     } while(c != '$');
-    if(write(input_pipefd[1], "./reproducer\n\r", 10) == -1) error("write");
+    if(write(input_pipefd[1], "./reproducer\n\r", 14) == -1) error("write");
   }
 
   return;
@@ -81,19 +81,17 @@ auto check_if_alive(int32_t pid) -> bool {
 }
 
 auto main(int32_t argc, char **argv) -> int32_t {
-  std::cout << "welcome to uxfuzz v0.0.1" << std::endl;
+  std::cout << "welcome to lxfuzz v0.0.1" << std::endl;
   std::cout << "starting instance" << std::endl;
 
   start_instance();
 
-  std::cout << "instances started; fuzzer ready" << std::endl;
+  std::cout << "instances started; reproducer ready" << std::endl;
 
   while(1) {
-    for(auto i{0}; i < std::stoi(argv[1]); i++) {
-      if(!check_if_alive(pid)) {
-        std::cout << "instance crashed!" << std::endl;
-
-      }
+    if(!check_if_alive(pid)) {
+      std::cout << "instance crashed!" << std::endl;
+      break;
     }
   }
 

@@ -123,7 +123,7 @@ auto main(int32_t argc, char **argv) -> int32_t {
   struct mq_attr attr{0x0,0x1,sizeof(stats_t),0x0};
   std::string fuzzer_args{};
 
-  std::cout << "welcome to uxfuzz v0.0.1" << std::endl;
+  std::cout << "welcome to lxfuzz v0.0.1" << std::endl;
 
   if(argc < 2) print_usage_and_exit(argv);
   fuzzer_args = parse_fuzzer_args(&argv[2]);
