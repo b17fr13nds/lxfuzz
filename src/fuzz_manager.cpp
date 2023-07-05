@@ -147,8 +147,9 @@ auto main(int32_t argc, char **argv) -> int32_t {
   while(1) {
     tot.execs_per_sec = 0;
 
-retry:
     for(auto i{0}; i < std::stoi(argv[1]); i++) {
+
+retry:
       if(!check_if_alive(i)) {
         std::cout << "instance " << i << " crashed!" << std::endl;
 
