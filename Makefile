@@ -1,6 +1,6 @@
-CFLAGS = -O3 -Wall -lpthread -static -lrt -Wno-unused-result -g -lstdc++_libbacktrace -Wdelete-incomplete -Wno-pointer-arith
-CXX = g++ -std=c++23
-TARGET_CXX = g++ -std=c++23
+CFLAGS = -O3 -Wall -lpthread -static -lrt -Wno-unused-result -g -Wdelete-incomplete -Wno-pointer-arith
+CXX = g++ -std=c++2a
+TARGET_CXX = g++ -std=c++2a
 
 fuzzer: ./src/fuzzer.cpp
 	$(TARGET_CXX) ./src/fuzzer.cpp ./src/mutator.cpp ./src/syscall_generator.cpp ./src/syscall_executor.cpp ./src/sysdevproc_generator.cpp ./src/sysdevproc_executor.cpp ./src/socket_generator.cpp ./src/socket_executor.cpp ./src/hypercall.c -o ./fuzzer $(CFLAGS)
