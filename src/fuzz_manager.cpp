@@ -14,10 +14,16 @@
 
 std::vector<int32_t> instance_pid;
 std::vector<int32_t> instance_crashes;
+std::vector<uint64_t*> instance_logsizes;
 
 auto print_usage_and_exit(char **argv) -> void {
   std::cout << argv[0] << ": <instances> <fuzzer options...>" << std::endl;
   exit(0);
+}
+
+auto number_of_files_in_directory(std::filesystem::path path) -> std::size_t {
+    using std::filesystem::directory_iterator;
+    return std::distance(directory_iterator(path), directory_iterator{});
 }
 
 auto parse_cmdline(int32_t instance_no) -> const char ** {
@@ -91,9 +97,30 @@ auto start_instance(int32_t instance_no, std::string fuzzer_args) -> void {
   return;
 }
 
+auto stop_instance(uint32_t instance_no) -> void {
+  if(kill(instance_pid.at(instance_no), SIGKILL) == -1) error("kill");
+
+  return;
+} 
+
 auto check_if_alive(int32_t idx) -> bool {
   if(!waitpid(instance_pid.at(idx), NULL, WNOHANG)) return true;
   return false;
+}
+
+auto check_if_log_activity(int32_t idx) -> bool {
+  size_t filesz;
+
+  for(size_t i{0}; i < number_of_files_in_directory("./kernel/data/instance" + std::to_string(idx)); i++) {
+    filesz = std::filesystem::file_size("./kernel/data/instance" + std::to_string(idx) + "/log_t" + std::to_string(i));
+
+    if(filesz == instance_logsizes.at(idx)[i]) {
+      return false;
+
+    }
+    instance_logsizes.at(idx)[i] = filesz;
+  }
+  return true;
 }
 
 auto save_crash(int32_t instance_no) -> void {
@@ -118,10 +145,10 @@ auto parse_fuzzer_args(char **start) -> std::string {
 }
 
 auto main(int32_t argc, char **argv) -> int32_t {
-  auto crashes{0};
-  mqd_t desc{0};
   struct mq_attr attr{0x0,0x1,sizeof(stats_t),0x0};
   std::string fuzzer_args{};
+  auto crashes{0};
+  mqd_t desc{0};
 
   std::cout << "welcome to lxfuzz v0.0.1" << std::endl;
 
@@ -139,6 +166,7 @@ auto main(int32_t argc, char **argv) -> int32_t {
     std::filesystem::create_directory("./kernel/data/instance" + std::to_string(i));
     start_instance(i, fuzzer_args);
     instance_crashes.push_back(0);
+    instance_logsizes.push_back(new uint64_t[number_of_files_in_directory("./kernel/data/instance" + std::to_string(i))]);
   }
 
   std::cout << "instance started; fuzzer ready" << std::endl;
@@ -162,6 +190,13 @@ retry:
 
         crashes++;
         instance_crashes.at(i)++;
+
+        std::cout << "instance " << i << " brought back up!" << std::endl;
+      } else if(!check_if_log_activity(i)) {
+        std::cout << "instance " << i << " hangs!" << std::endl;
+
+        stop_instance(i);
+        start_instance(i, fuzzer_args);
 
         std::cout << "instance " << i << " brought back up!" << std::endl;
       } else {
