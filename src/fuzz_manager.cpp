@@ -89,7 +89,7 @@ auto start_instance(int32_t instance_no, std::string fuzzer_args) -> void {
     std::string cmd{"./fuzzer " + fuzzer_args + "\n\r"};
 
     if(write(input_pipefd[1], cmd.c_str(), cmd.size()) == -1) error("write");
-    
+
     close(input_pipefd[1]);
     close(output_pipefd[0]);
   }
@@ -101,7 +101,7 @@ auto stop_instance(uint32_t instance_no) -> void {
   if(kill(instance_pid.at(instance_no), SIGKILL) == -1) error("kill");
 
   return;
-} 
+}
 
 auto check_if_alive(int32_t idx) -> bool {
   if(!waitpid(instance_pid.at(idx), NULL, WNOHANG)) return true;
@@ -116,8 +116,8 @@ auto check_if_log_activity(int32_t idx) -> bool {
 
     if(filesz == instance_logsizes.at(idx)[i]) {
       return false;
-
     }
+
     instance_logsizes.at(idx)[i] = filesz;
   }
   return true;
@@ -167,6 +167,9 @@ auto main(int32_t argc, char **argv) -> int32_t {
     start_instance(i, fuzzer_args);
     instance_crashes.push_back(0);
     instance_logsizes.push_back(new uint64_t[number_of_files_in_directory("./kernel/data/instance" + std::to_string(i))]);
+
+    for(size_t j{0}; j < number_of_files_in_directory("./kernel/data/instance" + std::to_string(i)); j++)
+      instance_logsizes.at(i)[j] = 0;
   }
 
   std::cout << "instance started; fuzzer ready" << std::endl;
@@ -176,14 +179,14 @@ auto main(int32_t argc, char **argv) -> int32_t {
     tot.execs_per_sec = 0;
 
     for(auto i{0}; i < std::stoi(argv[1]); i++) {
-
 retry:
+
       if(!check_if_alive(i)) {
         std::cout << "instance " << i << " crashed!" << std::endl;
 
         save_crash(i);
 
-        for (const auto& e : std::filesystem::directory_iterator("./kernel/data/instance" + std::to_string(i))) 
+        for (const auto& e : std::filesystem::directory_iterator("./kernel/data/instance" + std::to_string(i)))
           std::filesystem::remove_all(e.path());
 
         start_instance(i, fuzzer_args);
@@ -192,18 +195,24 @@ retry:
         instance_crashes.at(i)++;
 
         std::cout << "instance " << i << " brought back up!" << std::endl;
-      } else if(!check_if_log_activity(i)) {
-        std::cout << "instance " << i << " hangs!" << std::endl;
-
-        stop_instance(i);
-        start_instance(i, fuzzer_args);
-
-        std::cout << "instance " << i << " brought back up!" << std::endl;
       } else {
         if(mq_receive(desc, (char *)&tmp, sizeof(stats_t), 0) == -1) goto retry;
 
         tot.total_execs += tmp.total_execs;
         tot.execs_per_sec += tmp.execs_per_sec;
+      }
+
+      if(!check_if_log_activity(i)) {
+        std::cout << "instance " << i << " hangs!" << std::endl;
+
+        stop_instance(i);
+
+	for(size_t j{0}; j < number_of_files_in_directory("./kernel/data/instance" + std::to_string(i)); j++)
+          instance_logsizes.at(i)[j] = 0;
+
+        start_instance(i, fuzzer_args);
+
+        std::cout << "instance " << i << " brought back up!" << std::endl;
       }
     }
 
