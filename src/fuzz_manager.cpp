@@ -22,8 +22,8 @@ auto print_usage_and_exit(char **argv) -> void {
 }
 
 auto number_of_files_in_directory(std::filesystem::path path) -> std::size_t {
-    using std::filesystem::directory_iterator;
-    return std::distance(directory_iterator(path), directory_iterator{});
+  using std::filesystem::directory_iterator;
+  return std::distance(directory_iterator(path), directory_iterator{});
 }
 
 auto parse_cmdline(int32_t instance_no) -> const char ** {
@@ -98,7 +98,12 @@ auto start_instance(int32_t instance_no, std::string fuzzer_args) -> void {
 }
 
 auto stop_instance(uint32_t instance_no) -> void {
+  if(!instance_pid.at(instance_no)) return;
+
   if(kill(instance_pid.at(instance_no), SIGKILL) == -1) error("kill");
+  if(waitpid(instance_pid.at(instance_no), NULL, 0) == -1) error("waitpid");
+
+  instance_pid.at(instance_no) = 0;
 
   return;
 }
@@ -129,6 +134,9 @@ auto save_crash(int32_t instance_no) -> void {
 
 auto cleanup(int32_t x) -> void {
   if(mq_unlink("/fuzzer") == -1) perror("mq_unlink");
+
+  for(uint64_t i{0}; i < instance_pid.size(); i++)
+    stop_instance(i);
 
   exit(0);
 }
