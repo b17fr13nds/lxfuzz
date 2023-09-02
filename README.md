@@ -3,7 +3,12 @@ lxfuzz is a grey-box kernel fuzzer used for linux. it is scalable because of qem
 
 ## setup and run
 
-first you will need a properly built linux kernel. following options should be enabled
+first, install build dependencies (example debian-based):
+```
+wget git make gcc g++ flex bc bison pkg-config ninja-build libssl-dev libglib2.0-dev bzip2 libpixman-1-dev libelf-dev
+```
+
+of course, you will need a properly built linux kernel. following options should be enabled
 ```
 CONFIG_USER_NS=y
 CONFIG_NET_DEV_REFCNT_TRACKER=y
