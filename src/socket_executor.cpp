@@ -7,7 +7,7 @@
 auto execute(socket_op_t* sop) -> void {
   struct iovec iov[1];
   struct msghdr message{};
-  uint64_t *args = new uint64_t[sop->nsize+2];
+  uint64_t *args = new uint64_t[sop->size+2];
 
   std::vector<size_t> size;
   std::vector<size_t> offsets;
@@ -80,14 +80,14 @@ auto execute(socket_op_t* sop) -> void {
 
   switch(sop->option) {
     case 0:
-    setsockopt(sop->fd, SOL_SOCKET, sop->optname, args, sop->nsize);
+    setsockopt(sop->fd, SOL_SOCKET, sop->optname, args, sop->size);
     break;
     case 1:
-    write(sop->fd, args, sop->nsize);
+    write(sop->fd, args, sop->size);
     break;
     case 2:
     iov[0].iov_base = args;
-    iov[0].iov_len = sop->nsize;
+    iov[0].iov_len = sop->size;
     message.msg_iov = iov;
     message.msg_iovlen = 1;
     sendmsg(sop->fd, &message, 0);

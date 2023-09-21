@@ -34,15 +34,15 @@ auto readuntil(std::ifstream &f, std::string what1, std::string what2) -> std::s
 
 auto parse_syscall(std::ifstream &f) -> prog_t* {
   prog_t *ret = new prog_t;
-  syscall_t *sysc;
+  syscall_op_t *sysc;
   std::string tmp;
 
   ret->inuse = 0;
-  ret->op.sysc = new std::vector<syscall_t*>;
+  ret->op.sysc = new std::vector<syscall_op_t*>;
 
   do {
     ret->nops++;
-    sysc = new syscall_t;
+    sysc = new syscall_op_t;
 
     readuntil(f, "(");
     sysc->sysno = std::stoi(readuntil(f, ",", ")"));
@@ -96,7 +96,7 @@ auto parse_sysdevproc(std::ifstream &f) -> prog_t* {
       PARSE_VALUES(sdpop, ',');
 
       readuntil(f, " ");
-      sdpop->nsize = std::stoi(readuntil(f, ")"));
+      sdpop->size = std::stoi(readuntil(f, ")"));
     } else {
       sdpop->option = 2;
 
@@ -105,7 +105,7 @@ auto parse_sysdevproc(std::ifstream &f) -> prog_t* {
 
       readuntil(f, " ");
       tmp = readuntil(f, ")");
-      sdpop->nsize = std::stoi(tmp);
+      sdpop->size = std::stoi(tmp);
     }
 
     getline(f, tmp, '\n'); f.get();
@@ -145,7 +145,7 @@ auto parse_socket(std::ifstream &f) -> prog_t* {
       PARSE_VALUES(sop, ',');
 
       readuntil(f, " ");
-      sop->nsize = std::stoi(readuntil(f, ")"));
+      sop->size = std::stoi(readuntil(f, ")"));
     } else if(tmp == "write(") {
       sop->option = 1;
 
@@ -153,7 +153,7 @@ auto parse_socket(std::ifstream &f) -> prog_t* {
       PARSE_VALUES(sop, ',');
 
       readuntil(f, " ");
-      sop->nsize = std::stoi(readuntil(f, ")"));
+      sop->size = std::stoi(readuntil(f, ")"));
 
     } else if(tmp == "sendmsg(") {
       sop->option = 2;
@@ -162,7 +162,7 @@ auto parse_socket(std::ifstream &f) -> prog_t* {
       PARSE_VALUES(sop, ',');
 
       readuntil(f, " .iov.len = ");
-      sop->nsize = std::stoi(readuntil(f, ")"));
+      sop->size = std::stoi(readuntil(f, ")"));
 
     } else {
       sop->option = 3;

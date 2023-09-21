@@ -22,7 +22,7 @@
         op->nargno.push_back(cnt);\
 \
     } while(static_cast<char>(f.peek()) != stop);\
-    op->nargs = cnt;\
+    op->size = cnt;\
 }
 
 #define PARSE_VALUES(op, stop) {\

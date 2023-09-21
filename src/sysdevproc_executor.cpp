@@ -4,7 +4,7 @@
 #include "fuzzer.h"
 
 auto execute(sysdevproc_op_t* sdpop) -> void {
-  uint64_t *args = new uint64_t[sdpop->nsize+2];
+  uint64_t *args = new uint64_t[sdpop->size+2];
 
   std::vector<size_t> size;
   std::vector<size_t> offsets;
@@ -81,10 +81,10 @@ auto execute(sysdevproc_op_t* sdpop) -> void {
     break;
     case 1:
     break;
-    read(sdpop->fd, args, sdpop->nsize);
+    read(sdpop->fd, args, sdpop->size);
     break;
     case 2:
-    write(sdpop->fd, args, sdpop->nsize);
+    write(sdpop->fd, args, sdpop->size);
     break;
   }
 

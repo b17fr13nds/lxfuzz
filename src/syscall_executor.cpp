@@ -14,8 +14,8 @@ auto exec_syscall(uint16_t nr) -> void {
   return;
 }
 
-auto execute(syscall_t* sysc) -> void {
-  uint64_t *args = new uint64_t[sysc->nargs+2];
+auto execute(syscall_op_t* sysc) -> void {
+  uint64_t *args = new uint64_t[sysc->size+2];
 
   std::vector<size_t> size;
   std::vector<size_t> offsets;
@@ -93,7 +93,7 @@ auto execute(syscall_t* sysc) -> void {
     }
   }
 
-  switch(sysc->nargs) {
+  switch(sysc->size) {
     case 0:
     exec_syscall(sysc->sysno);
     break;

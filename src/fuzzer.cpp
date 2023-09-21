@@ -5,6 +5,7 @@
 #include <chrono>
 #include <fstream>
 #include <filesystem>
+#include <type_traits>
 #include <sched.h>
 #include <stdio.h>
 #include <unistd.h>
@@ -37,7 +38,7 @@ auto flog_program(prog_t *p, int32_t core) -> void {
     flog(static_cast<uint64_t>(core), "---------------- NEW PROGRAM (syscall) ----------------");
     for(uint64_t i{0}; i < p->nops; i++) {
       log += "syscall(" + std::to_string(p->op.sysc->at(i)->sysno);
-      if(p->op.sysc->at(i)->nargs) log += ", ";
+      if(p->op.sysc->at(i)->size) log += ", ";
       for(uint64_t j{0}; j < p->op.sysc->at(i)->value.size(); j++) {
         log +=  "[v:" + std::to_string(p->op.sysc->at(i)->value.at(j)) + "|d:" + std::to_string(p->op.sysc->at(i)->sinfo.get_deep(j)) + "|n:" + std::to_string(p->op.sysc->at(i)->sinfo.get_last(j)) + "]";
         if(j+1 < p->op.sysc->at(i)->value.size()) {
@@ -72,7 +73,7 @@ auto flog_program(prog_t *p, int32_t core) -> void {
       switch(p->op.sdp->at(i)->option) {
         case 1: [[fallthrough]];
         case 2:
-        log += ", " + std::to_string(p->op.sdp->at(i)->nsize);
+        log += ", " + std::to_string(p->op.sdp->at(i)->size);
         break;
       }
       log += ");";
@@ -105,11 +106,11 @@ auto flog_program(prog_t *p, int32_t core) -> void {
       }
       switch(p->op.sock->at(i)->option) {
         case 2:
-        log += ", .iov.len = " + std::to_string(p->op.sock->at(i)->nsize) + "}, 0);";
+        log += ", .iov.len = " + std::to_string(p->op.sock->at(i)->size) + "}, 0);";
         break;
         case 0: [[fallthrough]];
         case 1:
-        log += ", " + std::to_string(p->op.sock->at(i)->nsize);
+        log += ", " + std::to_string(p->op.sock->at(i)->size);
         default:
         log += ");";
         break;
