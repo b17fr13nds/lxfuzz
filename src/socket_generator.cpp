@@ -39,7 +39,7 @@ auto create_program3() -> prog_t* {
   int32_t fd{open_socket(program)};
   auto n{get_random(1,8)};
 
-  program->inuse = 2;
+  program->inuse = SOCKET;
   program->op.sock = new std::vector<socket_op_t*>;
   program->nops = n;
 

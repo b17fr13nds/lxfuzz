@@ -20,7 +20,7 @@ auto create_program1() -> prog_t* {
   prog_t *program = new prog_t;
   auto n{get_random(1,8)};
 
-  program->inuse = 0;
+  program->inuse = SYSCALL;
   program->op.sysc = new std::vector<syscall_op_t*>;
   program->nops = n;
 

@@ -24,6 +24,8 @@ inline void error(const char *str) {
 
 auto get_random(uint64_t, uint64_t) -> uint64_t;
 
+enum program_type {SYSCALL, SYSDEVPROC, SOCKET};
+
 class structinfo_t {
 public:
   std::vector<std::vector<uint64_t>> structinfo;

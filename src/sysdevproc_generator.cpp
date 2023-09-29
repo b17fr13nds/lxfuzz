@@ -40,9 +40,7 @@ auto create_program2() -> prog_t* {
   int fd{open_device(program)};
   auto n{get_random(1,8)};
 
-  std::cout << "FINISHED OPENING" << std::endl;
-
-  program->inuse = 1;
+  program->inuse = SYSDEVPROC;
   program->op.sdp = new std::vector<sysdevproc_op_t*>;
   program->nops = n;
 
@@ -50,8 +48,6 @@ auto create_program2() -> prog_t* {
     program->op.sdp->push_back(create_sysdevprocop());
     program->op.sdp->at(i)->fd = fd;
   }
-
-  std::cout << "FINISHED CREATING CALL" << std::endl;
 
   return program;
 }
