@@ -5,6 +5,7 @@
 #include <chrono>
 #include <fstream>
 #include <filesystem>
+#include <type_traits>
 #include <sched.h>
 #include <stdio.h>
 #include <unistd.h>
@@ -33,11 +34,11 @@ auto flog_program(prog_t *p, int32_t core) -> void {
   std::string log = "";
 
   switch(p->inuse) {
-    case 0:
+    case SYSCALL:
     flog(static_cast<uint64_t>(core), "---------------- NEW PROGRAM (syscall) ----------------");
     for(uint64_t i{0}; i < p->nops; i++) {
       log += "syscall(" + std::to_string(p->op.sysc->at(i)->sysno);
-      if(p->op.sysc->at(i)->nargs) log += ", ";
+      if(p->op.sysc->at(i)->size) log += ", ";
       for(uint64_t j{0}; j < p->op.sysc->at(i)->value.size(); j++) {
         log +=  "[v:" + std::to_string(p->op.sysc->at(i)->value.at(j)) + "|d:" + std::to_string(p->op.sysc->at(i)->sinfo.get_deep(j)) + "|n:" + std::to_string(p->op.sysc->at(i)->sinfo.get_last(j)) + "]";
         if(j+1 < p->op.sysc->at(i)->value.size()) {
@@ -49,7 +50,7 @@ auto flog_program(prog_t *p, int32_t core) -> void {
       log = "";
     }
     break;
-    case 1: //sdp
+    case SYSDEVPROC:
     flog(static_cast<uint64_t>(core), "---------------- NEW PROGRAM (sysdevproc) ----------------");
     log += "fd = open(\"" + p->devname + "\", " + std::to_string(p->prot) + ");";
     flog(static_cast<uint64_t>(core), log.c_str());
@@ -72,7 +73,7 @@ auto flog_program(prog_t *p, int32_t core) -> void {
       switch(p->op.sdp->at(i)->option) {
         case 1: [[fallthrough]];
         case 2:
-        log += ", " + std::to_string(p->op.sdp->at(i)->nsize);
+        log += ", " + std::to_string(p->op.sdp->at(i)->size);
         break;
       }
       log += ");";
@@ -80,7 +81,7 @@ auto flog_program(prog_t *p, int32_t core) -> void {
       log = "";
     }
     break;
-    case 2:
+    case SOCKET:
     flog(static_cast<uint64_t>(core), "---------------- NEW PROGRAM (socket) ----------------");
     log += "fd = socket(" + std::to_string(p->domain) + ", " + std::to_string(p->type) + ", 0);";
     flog(static_cast<uint64_t>(core), log.c_str());
@@ -105,11 +106,11 @@ auto flog_program(prog_t *p, int32_t core) -> void {
       }
       switch(p->op.sock->at(i)->option) {
         case 2:
-        log += ", .iov.len = " + std::to_string(p->op.sock->at(i)->nsize) + "}, 0);";
+        log += ", .iov.len = " + std::to_string(p->op.sock->at(i)->size) + "}, 0);";
         break;
         case 0: [[fallthrough]];
         case 1:
-        log += ", " + std::to_string(p->op.sock->at(i)->nsize);
+        log += ", " + std::to_string(p->op.sock->at(i)->size);
         default:
         log += ");";
         break;
@@ -133,13 +134,13 @@ auto execute_program(prog_t *program) -> pid_t {
 
     for(auto i{0}; i < program->nops; i++) {
       switch(program->inuse) {
-        case 0:
+        case SYSCALL:
         execute(program->op.sysc->at(i));
         break;
-        case 1:
+        case SYSDEVPROC:
         execute(program->op.sdp->at(i));
         break;
-        case 2:
+        case SOCKET:
         execute(program->op.sock->at(i));
         break;
       }
@@ -168,13 +169,13 @@ auto start(int32_t core, fuzzinfo_t fi) -> void {
         auto rnd{get_random(0,2)};
 
         switch(rnd) {
-          case 0:
+          case SYSCALL:
           program = create_program1();
           break;
-          case 1:
+          case SYSDEVPROC:
           program = create_program2();
           break;
-          case 2:
+          case SOCKET:
           program = create_program3();
           break;
         }

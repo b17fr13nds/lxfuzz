@@ -22,6 +22,10 @@ inline void error(const char *str) {
   exit(-1);
 }
 
+auto get_random(uint64_t, uint64_t) -> uint64_t;
+
+enum program_type {SYSCALL, SYSDEVPROC, SOCKET};
+
 class structinfo_t {
 public:
   std::vector<std::vector<uint64_t>> structinfo;
@@ -59,45 +63,45 @@ public:
   }
 };
 
-class syscall_t {
+class base_op_t {
 public:
-  syscall_t() : sysno{0}, nargs{0} {};
+  base_op_t() : size{0} {};
 
-  uint16_t sysno;
-  uint16_t nargs;
-  std::vector<uint32_t> nargno;
+  uint16_t size; // number of qwords at base level
   std::vector<uint64_t> value;
   structinfo_t sinfo;
 };
 
-class sysdevproc_op_t {
+class syscall_op_t : public base_op_t {
 public:
-  sysdevproc_op_t() : fd{0}, nsize{0}, option{0}, request{0} {};
+  syscall_op_t() : sysno{0} {};
+
+  uint16_t sysno;
+  std::vector<uint32_t> nargno;
+};
+
+class sysdevproc_op_t : public base_op_t {
+public:
+  sysdevproc_op_t() : fd{0}, option{0}, request{0} {};
   ~sysdevproc_op_t() {
     close(fd);
   }
 
   int32_t fd;
-  uint16_t nsize;
   uint8_t option;
   uint64_t request;
-  std::vector<uint64_t> value;
-  structinfo_t sinfo;
 };
 
-class socket_op_t {
+class socket_op_t : public base_op_t {
 public:
-  socket_op_t() : fd{0}, nsize{0}, option{0}, request{0}, optname{0} {};
+  socket_op_t() : fd{0}, option{0}, request{0}, optname{0} {};
   ~socket_op_t() {
     close(fd);
   }
 
   int32_t fd;
-  uint16_t nsize;
   uint8_t option;
   uint64_t request;
-  std::vector<uint64_t> value;
-  structinfo_t sinfo;
   int32_t optname;
 };
 
@@ -130,7 +134,7 @@ public:
   uint8_t nops;
   uint8_t inuse;
   union {
-    std::vector<syscall_t*> *sysc;
+    std::vector<syscall_op_t*> *sysc;
     std::vector<sysdevproc_op_t*> *sdp;
     std::vector<socket_op_t*> *sock;
   } op;
@@ -258,9 +262,71 @@ inline auto deref(uint64_t *in, std::vector<size_t>* offsets) -> uint64_t* {
   return tmp;
 }
 
+template <typename T>
+inline auto create_data(T *op, int32_t qwords) -> void {
+  int32_t cnt{0}, max_struct_rand{1}, curr_rand{0};
+  unsigned long saved{0}, structure_deep{0};
+  std::vector<unsigned long> tmp;
+
+  while(cnt < qwords) {
+    curr_rand = get_random(0,max_struct_rand);
+    structure_deep = static_cast<uint64_t>(curr_rand);
+
+    op->value.push_back(get_random(0,0xffffffffffffffff));
+    if(curr_rand == max_struct_rand) {
+      max_struct_rand++;
+    } else if(max_struct_rand > 1) {
+      max_struct_rand--;
+    }
+
+    op->sinfo.push(tmp);
+    op->sinfo.push_end(1);
+    for(uint64_t j{0}; j < structure_deep; j++) {
+      op->sinfo.push_end(1);
+
+      for(uint64_t i{0}; i < op->sinfo.get_size()-1; i++) {
+        if(j+1 <= op->sinfo.get_deep(i) && op->sinfo.get_deep(i)) {
+          if(check_smaller_before<T>(i, j+1, op)) op->sinfo.incr_end(j+1);
+        }
+      }
+    }
+
+    switch(op->sinfo.get_deep(op->sinfo.get_size()-1)) {
+      case 0:
+      if constexpr(std::is_same_v<T, syscall_op_t>) {
+        if(saved > 0) {
+          op->nargno.at(op->nargno.size()-1) = cnt;
+        }
+      }
+      saved = 0;
+      cnt++;
+      break;
+      case 1:
+      if(op->sinfo.get_size() > 1) {
+        if(op->sinfo.get_last(op->sinfo.structinfo.size()-1) == saved) break;
+      }
+      saved = op->sinfo.get_last(op->sinfo.structinfo.size()-1);
+      cnt++;
+      break;
+      default:
+      if(op->sinfo.get_size()-1 > 1) {
+        if(op->sinfo.get_deep(op->sinfo.get_size()-2) != 0) break;
+      } else break;
+      cnt++;
+      break;
+    }
+
+    if constexpr(std::is_same_v<T, syscall_op_t>) {
+      op->nargno.push_back(cnt);
+    }
+  }
+
+  op->size = qwords;
+  return;
+}
+
 extern std::vector<std::string> virtual_dev_names;
 
-auto get_random(uint64_t, uint64_t) -> uint64_t;
 auto flog_program(prog_t *, int32_t) -> void;
 auto execute_program(prog_t*) -> pid_t;
 
@@ -269,8 +335,8 @@ auto mutate_prog(prog_t *p) -> void;
 template <typename... T>
 auto exec_syscall(uint16_t, T...) -> void;
 auto exec_syscall(uint16_t) -> void;
-auto execute(syscall_t*) -> void;
-auto create_syscall() -> syscall_t*;
+auto execute(syscall_op_t*) -> void;
+auto create_syscall() -> syscall_op_t*;
 auto create_program1() -> prog_t*;
 
 auto open_device(prog_t*) -> int32_t;
