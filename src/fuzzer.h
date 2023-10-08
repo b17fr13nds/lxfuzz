@@ -329,6 +329,7 @@ extern std::vector<std::string> virtual_dev_names;
 
 auto flog_program(prog_t *, int32_t) -> void;
 auto execute_program(prog_t*) -> pid_t;
+auto print_program(prog_t *) -> void;
 
 auto mutate_prog(prog_t *p) -> void;
 
