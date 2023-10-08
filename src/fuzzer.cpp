@@ -124,6 +124,41 @@ auto flog_program(prog_t *p, int32_t core) -> void {
   return;
 }
 
+auto print_program(prog_t *program) -> void {
+  switch(program->inuse) {
+    case SYSCALL:
+    for(int i{0}; i < program->nops; i++) {
+      std::cout << "------------------------------" << std::endl;
+      for(uint64_t j{0}; j < program->op.sysc->at(i)->value.size(); j++) {
+        std::cout << "value: " << program->op.sysc->at(i)->value.at(j) << "; deep: " << program->op.sysc->at(i)->sinfo.get_deep(j) << "; ndeep: ";
+        for(uint64_t k{0}; k < program->op.sysc->at(i)->sinfo.get_deep(j); k++) std::cout << program->op.sysc->at(i)->sinfo.get(j, k) << ",";
+        std::cout << std::endl;
+      }
+    }
+    break;
+    case SYSDEVPROC:
+    for(int i{0}; i < program->nops; i++) {
+      std::cout << "------------------------------" << std::endl;
+      for(uint64_t j{0}; j < program->op.sdp->at(i)->value.size(); j++) {
+        std::cout << "value: " << program->op.sdp->at(i)->value.at(j) << "; deep: " << program->op.sdp->at(i)->sinfo.get_deep(j) << "; ndeep: ";
+        for(uint64_t k{0}; k < program->op.sdp->at(i)->sinfo.get_deep(j); k++) std::cout << program->op.sdp->at(i)->sinfo.get(j, k) << ",";
+        std::cout << std::endl;
+      }
+    }
+    break;
+    case SOCKET:
+    for(int i{0}; i < program->nops; i++) {
+      std::cout << "------------------------------" << std::endl;
+      for(uint64_t j{0}; j < program->op.sock->at(i)->value.size(); j++) {
+        std::cout << "value: " << program->op.sock->at(i)->value.at(j) << "; deep: " << program->op.sock->at(i)->sinfo.get_deep(j) << "; ndeep: ";
+        for(uint64_t k{0}; k < program->op.sock->at(i)->sinfo.get_deep(j); k++) std::cout << program->op.sock->at(i)->sinfo.get(j, k) << ",";
+        std::cout << std::endl;
+      }
+    }
+    break;
+  }
+}
+
 auto execute_program(prog_t *program) -> pid_t {
   auto pid{fork()};
 

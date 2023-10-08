@@ -215,7 +215,7 @@ retry:
 
         stop_instance(i);
 
-	for(size_t j{0}; j < number_of_files_in_directory("./kernel/data/instance" + std::to_string(i)); j++)
+	      for(size_t j{0}; j < number_of_files_in_directory("./kernel/data/instance" + std::to_string(i)); j++)
           instance_logsizes.at(i)[j] = 0;
 
         start_instance(i, fuzzer_args);

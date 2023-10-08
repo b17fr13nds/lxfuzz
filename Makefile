@@ -1,4 +1,4 @@
-CFLAGS = -O3 -Wall -lpthread -static -lrt -Wno-unused-result -g -Wdelete-incomplete -Wno-pointer-arith
+CFLAGS = -O3 -Wall -lpthread -lrt -Wno-unused-result -gstrict-dwarf -Wno-delete-incomplete -Wno-pointer-arith -static 
 CXX = g++ -std=c++2a
 TARGET_CXX = g++ -std=c++2a
 
