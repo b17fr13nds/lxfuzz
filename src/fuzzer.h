@@ -110,24 +110,46 @@ public:
   prog_t() : nops{0} {};
   ~prog_t() {
     switch(inuse) {
-      case 0:
+      case SYSCALL:
       for(unsigned long i{0}; i < op.sysc->size(); i++) {
         delete op.sysc->at(i);
       }
       delete op.sysc;
       break;
-      case 1:
+      case SYSDEVPROC:
       for(unsigned long i{0}; i < op.sdp->size(); i++) {
         delete op.sdp->at(i);
       }
       delete op.sdp;
       break;
-      case 2:
+      case SOCKET:
       for(unsigned long i{0}; i < op.sock->size(); i++) {
         delete op.sock->at(i);
       }
       delete op.sock;
       break;
+    }
+  }
+
+  auto get_value(int idx) -> std::vector<uint64_t>* {
+    switch(inuse) {
+      case SYSCALL:
+      return &op.sysc->at(idx)->value;
+      case SYSDEVPROC:
+      return &op.sdp->at(idx)->value;
+      case SOCKET:
+      return &op.sock->at(idx)->value;
+    }
+  }
+
+  auto get_sinfo(int idx) -> structinfo_t* {
+    switch(inuse) {
+      case SYSCALL:
+      return &op.sysc->at(idx)->sinfo;
+      case SYSDEVPROC:
+      return &op.sdp->at(idx)->sinfo;
+      case SOCKET:
+      return &op.sock->at(idx)->sinfo;
     }
   }
 
