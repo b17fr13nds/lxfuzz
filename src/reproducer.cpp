@@ -63,7 +63,7 @@ auto parse_sysdevproc(std::ifstream &f) -> prog_t* {
   prog_t *ret = new prog_t;
   sysdevproc_op_t *sdpop;
   std::string tmp;
-  int fd{};
+  int32_t fd{};
 
   ret->inuse = 1;
   ret->op.sdp = new std::vector<sysdevproc_op_t*>;
@@ -119,7 +119,7 @@ auto parse_socket(std::ifstream &f) -> prog_t* {
   prog_t *ret = new prog_t;
   socket_op_t *sop;
   std::string tmp;
-  int fd{};
+  int32_t fd{};
 
   ret->inuse = 2;
   ret->op.sock = new std::vector<socket_op_t*>;
@@ -253,7 +253,7 @@ retry:
   goto retry;
 }
 
-auto spawn_threads(void *unused) -> int {
+auto spawn_threads(void *unused) -> int32_t {
   auto cores_available = std::thread::hardware_concurrency();
   std::thread *t = new std::thread[cores_available];
 

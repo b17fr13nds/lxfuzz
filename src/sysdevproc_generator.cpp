@@ -5,7 +5,7 @@
 #include <random>
 #include "fuzzer.h"
 
-auto open_device(prog_t *p) -> int {
+auto open_device(prog_t *p) -> int32_t {
   int fd{}, tmp{};
 
   do {
@@ -37,7 +37,7 @@ auto create_sysdevprocop() -> sysdevproc_op_t* {
 
 auto create_program2() -> prog_t* {
   prog_t *program = new prog_t;
-  int fd{open_device(program)};
+  int32_t fd{open_device(program)};
   auto n{get_random(1,8)};
 
   program->inuse = SYSDEVPROC;

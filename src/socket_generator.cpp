@@ -7,7 +7,7 @@
 #include <sys/socket.h>
 #include "fuzzer.h"
 
-auto open_socket(prog_t *p) -> int {
+auto open_socket(prog_t *p) -> int32_t {
   int32_t fd{}, domain{}, type{};
 
   do {

@@ -231,7 +231,7 @@ auto start(int32_t core, fuzzinfo_t fi) -> void {
   }
 }
 
-auto spawn_threads(void *unused) -> int {
+auto spawn_threads(void *unused) -> int32_t {
   auto cores_available = std::thread::hardware_concurrency();
   std::thread *t = new std::thread[cores_available];
   fuzzinfo_t fi(cores_available);

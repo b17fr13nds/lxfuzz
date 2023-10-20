@@ -4,7 +4,7 @@
 #include <vector>
 #include "fuzzer.h"
 
-auto create_syscall() -> syscall_op_t* {
+auto create_syscallop() -> syscall_op_t* {
   int32_t args{static_cast<int32_t>(get_random(0,6))};
 
   syscall_op_t *sysc = new syscall_op_t;
@@ -27,7 +27,7 @@ auto create_program1() -> prog_t* {
   program->nops = n;
 
   for(decltype(n) i{0}; i < n; i++) {
-    program->op.sysc->push_back(create_syscall());
+    program->op.sysc->push_back(create_syscallop());
   }
 
   return program;

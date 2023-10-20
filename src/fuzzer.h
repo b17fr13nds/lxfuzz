@@ -111,19 +111,19 @@ public:
   ~prog_t() {
     switch(inuse) {
       case SYSCALL:
-      for(unsigned long i{0}; i < op.sysc->size(); i++) {
+      for(uint64_t i{0}; i < op.sysc->size(); i++) {
         delete op.sysc->at(i);
       }
       delete op.sysc;
       break;
       case SYSDEVPROC:
-      for(unsigned long i{0}; i < op.sdp->size(); i++) {
+      for(uint64_t i{0}; i < op.sdp->size(); i++) {
         delete op.sdp->at(i);
       }
       delete op.sdp;
       break;
       case SOCKET:
-      for(unsigned long i{0}; i < op.sock->size(); i++) {
+      for(uint64_t i{0}; i < op.sock->size(); i++) {
         delete op.sock->at(i);
       }
       delete op.sock;
@@ -131,7 +131,7 @@ public:
     }
   }
 
-  auto get_value(int idx) -> std::vector<uint64_t>* {
+  auto get_value(int32_t idx) -> std::vector<uint64_t>* {
     switch(inuse) {
       case SYSCALL:
       return &op.sysc->at(idx)->value;
@@ -144,7 +144,7 @@ public:
     }
   }
 
-  auto get_sinfo(int idx) -> structinfo_t* {
+  auto get_sinfo(int32_t idx) -> structinfo_t* {
     switch(inuse) {
       case SYSCALL:
       return &op.sysc->at(idx)->sinfo;
@@ -183,10 +183,10 @@ class fuzzinfo_t {
   std::vector<prog_t*> corpus;
   kcov_data_t **kcov;
 public:
-  fuzzinfo_t(int n) : kcov{nullptr} {
+  fuzzinfo_t(int32_t n) : kcov{nullptr} {
     kcov = new kcov_data_t*[n];
 
-    for(int i{0}; i < n; i++) {
+    for(auto i{0}; i < n; i++) {
       kcov[i] = new kcov_data_t;
       kcov[i]->kcov_fd = open("/sys/kernel/debug/kcov", O_RDWR);
       if(ioctl(kcov[i]->kcov_fd, KCOV_INIT_TRACE, COVER_SIZE) == -1) error("ioctl");
@@ -370,7 +370,7 @@ template <typename... T>
 auto exec_syscall(uint16_t, T...) -> void;
 auto exec_syscall(uint16_t) -> void;
 auto execute(syscall_op_t*) -> void;
-auto create_syscall() -> syscall_op_t*;
+auto create_syscallop() -> syscall_op_t*;
 auto create_program1() -> prog_t*;
 
 auto open_device(prog_t*) -> int32_t;

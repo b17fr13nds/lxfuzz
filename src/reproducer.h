@@ -1,7 +1,7 @@
 #include "fuzzer.h"
 
 #define PARSE_VALUES_SYSCALL(op, stop) {\
-    int cnt{1};\
+    int32_t cnt{1};\
     std::vector<uint64_t> v;\
     readuntil(f, "[");\
     do {\

@@ -4,7 +4,7 @@
 auto add_op(prog_t *p) -> void {
   switch(p->inuse) {
     case SYSCALL:
-    p->op.sysc->push_back(create_syscall());
+    p->op.sysc->push_back(create_syscallop());
     break;
     case SYSDEVPROC:
     p->op.sdp->push_back(create_sysdevprocop());
@@ -53,7 +53,7 @@ auto change_value(prog_t *p) -> void {
 
 auto insert_value(prog_t *p) -> void {
   auto idx{get_random(0, p->nops-1)};
-  int insert_idx{};
+  int32_t insert_idx{};
 
   if(p->get_value(idx)->size()) {
     insert_idx = get_random(1,p->get_value(idx)->size());
