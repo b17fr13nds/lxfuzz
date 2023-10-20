@@ -9,7 +9,9 @@ auto create_syscall() -> syscall_op_t* {
 
   syscall_op_t *sysc = new syscall_op_t;
 
-  sysc->sysno = get_random(0,332);
+  do {
+    sysc->sysno = get_random(0,451);
+  } while(sysc->sysno > 334 && sysc->sysno < 424);
 
   create_data<syscall_op_t>(sysc, args);
 

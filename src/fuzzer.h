@@ -47,15 +47,15 @@ public:
   }
 
   auto push_end(uint64_t val) -> void {
-    structinfo.at(get_size()-1).push_back(val);
+    structinfo.back().push_back(val);
   }
 
   auto incr_end(uint64_t pos) -> void {
-    structinfo.at(get_size()-1).at(pos)++;
+    structinfo.back().at(pos)++;
   }
 
   auto get_last(uint64_t n) -> uint64_t {
-    return structinfo.at(n).at(structinfo.at(n).size()-1);
+    return structinfo.at(n).back();
   }
 
   auto get_vec(uint64_t pos) -> std::vector<uint64_t> {
@@ -110,24 +110,50 @@ public:
   prog_t() : nops{0} {};
   ~prog_t() {
     switch(inuse) {
-      case 0:
+      case SYSCALL:
       for(unsigned long i{0}; i < op.sysc->size(); i++) {
         delete op.sysc->at(i);
       }
       delete op.sysc;
       break;
-      case 1:
+      case SYSDEVPROC:
       for(unsigned long i{0}; i < op.sdp->size(); i++) {
         delete op.sdp->at(i);
       }
       delete op.sdp;
       break;
-      case 2:
+      case SOCKET:
       for(unsigned long i{0}; i < op.sock->size(); i++) {
         delete op.sock->at(i);
       }
       delete op.sock;
       break;
+    }
+  }
+
+  auto get_value(int idx) -> std::vector<uint64_t>* {
+    switch(inuse) {
+      case SYSCALL:
+      return &op.sysc->at(idx)->value;
+      case SYSDEVPROC:
+      return &op.sdp->at(idx)->value;
+      case SOCKET:
+      return &op.sock->at(idx)->value;
+      default:
+      return nullptr;
+    }
+  }
+
+  auto get_sinfo(int idx) -> structinfo_t* {
+    switch(inuse) {
+      case SYSCALL:
+      return &op.sysc->at(idx)->sinfo;
+      case SYSDEVPROC:
+      return &op.sdp->at(idx)->sinfo;
+      case SOCKET:
+      return &op.sock->at(idx)->sinfo;
+      default:
+      return nullptr;
     }
   }
 
@@ -214,12 +240,12 @@ public:
   {\
     size_t tmp{offsets.back()};\
     offsets.pop_back();\
-    size.at(size.size()-1) += 8;\
+    size.back() += 8;\
     auto ptr{reinterpret_cast<void*>(deref(x, &offsets)[perstruct_cnt.at(perstruct_cnt.size()-2)-1])};\
     size_t i{0};\
     for(; i < ptrs.size(); i++) {\
       if(ptrs.at(i) == ptr) {\
-        ptrs.at(i) = realloc(reinterpret_cast<void*>(ptr),size.at(size.size()-1));\
+        ptrs.at(i) = realloc(reinterpret_cast<void*>(ptr),size.back());\
         break;\
       }\
     }\
@@ -264,60 +290,67 @@ inline auto deref(uint64_t *in, std::vector<size_t>* offsets) -> uint64_t* {
 
 template <typename T>
 inline auto create_data(T *op, int32_t qwords) -> void {
-  int32_t cnt{0}, max_struct_rand{1}, curr_rand{0};
-  unsigned long saved{0}, structure_deep{0};
-  std::vector<unsigned long> tmp;
+  int32_t cnt{0}, max_struct_rand{1}, curr_rand{0}, repititions{1};
+  uint64_t saved{0}, structure_deep{0};
+  std::vector<uint64_t> tmp;
 
   while(cnt < qwords) {
     curr_rand = get_random(0,max_struct_rand);
     structure_deep = static_cast<uint64_t>(curr_rand);
 
-    op->value.push_back(get_random(0,0xffffffffffffffff));
-    if(curr_rand == max_struct_rand) {
-      max_struct_rand++;
-    } else if(max_struct_rand > 1) {
-      max_struct_rand--;
-    }
+    if(structure_deep && get_random(0,2))
+      repititions = get_random(5,20);
+    else
+      repititions = 1;
 
-    op->sinfo.push(tmp);
-    op->sinfo.push_end(1);
-    for(uint64_t j{0}; j < structure_deep; j++) {
+    for(int32_t k{0}; k < repititions; k++) {
+      op->value.push_back(get_random(0,0xffffffffffffffff));
+      if(curr_rand == max_struct_rand) {
+        max_struct_rand++;
+      } else if(max_struct_rand > 1) {
+        max_struct_rand--;
+      }
+
+      op->sinfo.push(tmp);
       op->sinfo.push_end(1);
+      for(uint64_t j{0}; j < structure_deep; j++) {
+        op->sinfo.push_end(1);
 
-      for(uint64_t i{0}; i < op->sinfo.get_size()-1; i++) {
-        if(j+1 <= op->sinfo.get_deep(i) && op->sinfo.get_deep(i)) {
-          if(check_smaller_before<T>(i, j+1, op)) op->sinfo.incr_end(j+1);
+        for(uint64_t i{0}; i < op->sinfo.get_size()-1; i++) {
+          if(j+1 <= op->sinfo.get_deep(i) && op->sinfo.get_deep(i)) {
+            if(check_smaller_before<T>(i, j+1, op)) op->sinfo.incr_end(j+1);
+          }
         }
       }
-    }
 
-    switch(op->sinfo.get_deep(op->sinfo.get_size()-1)) {
-      case 0:
+      switch(op->sinfo.get_deep(op->sinfo.get_size()-1)) {
+        case 0:
+        if constexpr(std::is_same_v<T, syscall_op_t>) {
+          if(saved > 0) {
+            op->nargno.at(op->nargno.size()-1) = cnt;
+          }
+        }
+        saved = 0;
+        cnt++;
+        break;
+        case 1:
+        if(op->sinfo.get_size() > 1) {
+          if(op->sinfo.get_last(op->sinfo.structinfo.size()-1) == saved) break;
+        }
+        saved = op->sinfo.get_last(op->sinfo.structinfo.size()-1);
+        cnt++;
+        break;
+        default:
+        if(op->sinfo.get_size()-1 > 1) {
+          if(op->sinfo.get_deep(op->sinfo.get_size()-2) != 0) break;
+        } else break;
+        cnt++;
+        break;
+      }
+
       if constexpr(std::is_same_v<T, syscall_op_t>) {
-        if(saved > 0) {
-          op->nargno.at(op->nargno.size()-1) = cnt;
-        }
+        op->nargno.push_back(cnt);
       }
-      saved = 0;
-      cnt++;
-      break;
-      case 1:
-      if(op->sinfo.get_size() > 1) {
-        if(op->sinfo.get_last(op->sinfo.structinfo.size()-1) == saved) break;
-      }
-      saved = op->sinfo.get_last(op->sinfo.structinfo.size()-1);
-      cnt++;
-      break;
-      default:
-      if(op->sinfo.get_size()-1 > 1) {
-        if(op->sinfo.get_deep(op->sinfo.get_size()-2) != 0) break;
-      } else break;
-      cnt++;
-      break;
-    }
-
-    if constexpr(std::is_same_v<T, syscall_op_t>) {
-      op->nargno.push_back(cnt);
     }
   }
 

@@ -45,20 +45,8 @@ out:
 auto change_value(prog_t *p) -> void {
   auto idx{get_random(0, p->nops-1)};
 
-  switch(p->inuse) {
-    case SYSCALL:
-    if(p->op.sysc->at(idx)->value.size())
-      p->op.sysc->at(idx)->value.at(get_random(0,p->op.sysc->at(idx)->value.size()-1)) = get_random(0,0xffffffffffffffff);
-    break;
-    case SYSDEVPROC:
-    if(p->op.sdp->at(idx)->value.size())
-      p->op.sdp->at(idx)->value.at(get_random(0,p->op.sdp->at(idx)->value.size()-1)) = get_random(0,0xffffffffffffffff);
-    break;
-    case SOCKET:
-    if(p->op.sock->at(idx)->value.size())
-      p->op.sock->at(idx)->value.at(get_random(0,p->op.sock->at(idx)->value.size()-1)) = get_random(0,0xffffffffffffffff);
-    break;
-  }
+  if(p->get_value(idx)->size())
+    p->get_value(idx)->at(get_random(0,p->get_value(idx)->size()-1)) = get_random(0,0xffffffffffffffff);
 
   return;
 }
@@ -67,43 +55,20 @@ auto insert_value(prog_t *p) -> void {
   auto idx{get_random(0, p->nops-1)};
   int insert_idx{};
 
-  switch(p->inuse) {
-    case SYSCALL:
-    if(p->op.sysc->at(idx)->value.size()) {
-      insert_idx = get_random(1,p->op.sysc->at(idx)->value.size());
+  if(p->get_value(idx)->size()) {
+    insert_idx = get_random(1,p->get_value(idx)->size());
 
-      if(!p->op.sysc->at(idx)->sinfo.get_deep(insert_idx-1)) break;
+    if(!p->get_sinfo(idx)->get_deep(insert_idx-1)) goto out;
 
-      p->op.sysc->at(idx)->value.insert(p->op.sysc->at(idx)->value.begin() + insert_idx, get_random(0,0xffffffffffffffff));
-      p->op.sysc->at(idx)->sinfo.structinfo.insert(p->op.sysc->at(idx)->sinfo.structinfo.begin() + insert_idx, p->op.sysc->at(idx)->sinfo.structinfo.at(insert_idx-1));
+    p->get_value(idx)->insert(p->get_value(idx)->begin() + insert_idx, get_random(0,0xffffffffffffffff));
+    p->get_sinfo(idx)->structinfo.insert(p->get_sinfo(idx)->structinfo.begin() + insert_idx, p->get_sinfo(idx)->structinfo.at(insert_idx-1));
+    if(p->inuse == SYSCALL)
       p->op.sysc->at(idx)->nargno.insert(p->op.sysc->at(idx)->nargno.begin() + insert_idx, p->op.sysc->at(idx)->nargno.at(insert_idx-1));
-    }
-    break;
-    case SYSDEVPROC:
-    if(p->op.sdp->at(idx)->value.size()) {
-      insert_idx = get_random(1,p->op.sdp->at(idx)->value.size());
-
-      if(!p->op.sdp->at(idx)->sinfo.get_deep(insert_idx-1)) break;
-
-      p->op.sdp->at(idx)->value.insert(p->op.sdp->at(idx)->value.begin() + insert_idx, get_random(0,0xffffffffffffffff));
-      p->op.sdp->at(idx)->sinfo.structinfo.insert(p->op.sdp->at(idx)->sinfo.structinfo.begin() + insert_idx, p->op.sdp->at(idx)->sinfo.structinfo.at(insert_idx-1));
-    }
-    break;
-    case SOCKET:
-    if(p->op.sock->at(idx)->value.size()) {
-      insert_idx = get_random(1,p->op.sock->at(idx)->value.size());
-
-      if(!p->op.sock->at(idx)->sinfo.get_deep(insert_idx-1)) break;
-
-      p->op.sock->at(idx)->value.insert(p->op.sock->at(idx)->value.begin() + insert_idx, get_random(0,0xffffffffffffffff));
-      p->op.sock->at(idx)->sinfo.structinfo.insert(p->op.sock->at(idx)->sinfo.structinfo.begin() + insert_idx, p->op.sock->at(idx)->sinfo.structinfo.at(insert_idx-1));
-    }
-    break;
   }
 
+out:
   return;
 }
-
 
 auto mutate_prog(prog_t *p) -> void {
   switch(get_random(0,3)) {

@@ -39,9 +39,9 @@ auto flog_program(prog_t *p, int32_t core) -> void {
     for(uint64_t i{0}; i < p->nops; i++) {
       log += "syscall(" + std::to_string(p->op.sysc->at(i)->sysno);
       if(p->op.sysc->at(i)->size) log += ", ";
-      for(uint64_t j{0}; j < p->op.sysc->at(i)->value.size(); j++) {
-        log +=  "[v:" + std::to_string(p->op.sysc->at(i)->value.at(j)) + "|d:" + std::to_string(p->op.sysc->at(i)->sinfo.get_deep(j)) + "|n:" + std::to_string(p->op.sysc->at(i)->sinfo.get_last(j)) + "]";
-        if(j+1 < p->op.sysc->at(i)->value.size()) {
+      for(uint64_t j{0}; j < p->get_value(i)->size(); j++) {
+        log +=  "[v:" + std::to_string(p->get_value(i)->at(j)) + "|d:" + std::to_string(p->get_sinfo(i)->get_deep(j)) + "|n:" + std::to_string(p->get_sinfo(i)->get_last(j)) + "]";
+        if(j+1 < p->get_value(i)->size()) {
           if(p->op.sysc->at(i)->nargno.at(j+1) > p->op.sysc->at(i)->nargno.at(j)) log += ", ";
         }
       }
@@ -67,8 +67,8 @@ auto flog_program(prog_t *p, int32_t core) -> void {
         log += "write(fd, ";
         break;
       }
-      for(uint64_t j{0}; j < p->op.sdp->at(i)->value.size(); j++) {
-        log +=  "[v:" + std::to_string(p->op.sdp->at(i)->value.at(j)) + "|d:" + std::to_string(p->op.sdp->at(i)->sinfo.get_deep(j)) + "|n:" + std::to_string(p->op.sdp->at(i)->sinfo.get_last(j)) + "]";
+      for(uint64_t j{0}; j < p->get_value(i)->size(); j++) {
+        log +=  "[v:" + std::to_string(p->get_value(i)->at(j)) + "|d:" + std::to_string(p->get_sinfo(i)->get_deep(j)) + "|n:" + std::to_string(p->get_sinfo(i)->get_last(j)) + "]";
       }
       switch(p->op.sdp->at(i)->option) {
         case 1: [[fallthrough]];
@@ -101,8 +101,8 @@ auto flog_program(prog_t *p, int32_t core) -> void {
         log += "ioctl(fd, " + std::to_string(p->op.sock->at(i)->request) + ", ";
         break;
       }
-      for(uint64_t j{0}; j < p->op.sock->at(i)->value.size(); j++) {
-        log +=  "[v:" + std::to_string(p->op.sock->at(i)->value.at(j)) + "|d:" + std::to_string(p->op.sock->at(i)->sinfo.get_deep(j)) + "|n:" + std::to_string(p->op.sock->at(i)->sinfo.get_last(j)) + "]";
+      for(uint64_t j{0}; j < p->get_value(i)->size(); j++) {
+        log +=  "[v:" + std::to_string(p->get_value(i)->at(j)) + "|d:" + std::to_string(p->get_sinfo(i)->get_deep(j)) + "|n:" + std::to_string(p->get_sinfo(i)->get_last(j)) + "]";
       }
       switch(p->op.sock->at(i)->option) {
         case 2:
@@ -125,37 +125,13 @@ auto flog_program(prog_t *p, int32_t core) -> void {
 }
 
 auto print_program(prog_t *program) -> void {
-  switch(program->inuse) {
-    case SYSCALL:
-    for(int i{0}; i < program->nops; i++) {
-      std::cout << "------------------------------" << std::endl;
-      for(uint64_t j{0}; j < program->op.sysc->at(i)->value.size(); j++) {
-        std::cout << "value: " << program->op.sysc->at(i)->value.at(j) << "; deep: " << program->op.sysc->at(i)->sinfo.get_deep(j) << "; ndeep: ";
-        for(uint64_t k{0}; k < program->op.sysc->at(i)->sinfo.get_deep(j); k++) std::cout << program->op.sysc->at(i)->sinfo.get(j, k) << ",";
-        std::cout << std::endl;
-      }
+  for(int i{0}; i < program->nops; i++) {
+    std::cout << "------------------------------" << std::endl;
+    for(uint64_t j{0}; j < program->get_value(i)->size(); j++) {
+      std::cout << "value: " << program->get_value(i)->at(j) << "; deep: " << program->get_sinfo(i)->get_deep(j) << "; ndeep: ";
+      for(uint64_t k{0}; k < program->get_sinfo(i)->get_deep(j); k++) std::cout << program->get_sinfo(i)->get(j, k) << ",";
+      std::cout << std::endl;
     }
-    break;
-    case SYSDEVPROC:
-    for(int i{0}; i < program->nops; i++) {
-      std::cout << "------------------------------" << std::endl;
-      for(uint64_t j{0}; j < program->op.sdp->at(i)->value.size(); j++) {
-        std::cout << "value: " << program->op.sdp->at(i)->value.at(j) << "; deep: " << program->op.sdp->at(i)->sinfo.get_deep(j) << "; ndeep: ";
-        for(uint64_t k{0}; k < program->op.sdp->at(i)->sinfo.get_deep(j); k++) std::cout << program->op.sdp->at(i)->sinfo.get(j, k) << ",";
-        std::cout << std::endl;
-      }
-    }
-    break;
-    case SOCKET:
-    for(int i{0}; i < program->nops; i++) {
-      std::cout << "------------------------------" << std::endl;
-      for(uint64_t j{0}; j < program->op.sock->at(i)->value.size(); j++) {
-        std::cout << "value: " << program->op.sock->at(i)->value.at(j) << "; deep: " << program->op.sock->at(i)->sinfo.get_deep(j) << "; ndeep: ";
-        for(uint64_t k{0}; k < program->op.sock->at(i)->sinfo.get_deep(j); k++) std::cout << program->op.sock->at(i)->sinfo.get(j, k) << ",";
-        std::cout << std::endl;
-      }
-    }
-    break;
   }
 }
 
