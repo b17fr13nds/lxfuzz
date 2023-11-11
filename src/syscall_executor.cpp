@@ -15,83 +15,8 @@ auto exec_syscall(uint16_t nr) -> void {
 }
 
 auto execute(syscall_op_t* sysc) -> void {
-  uint64_t *args = new uint64_t[sysc->size+2];
-
-  std::vector<size_t> size;
-  std::vector<size_t> offsets;
-  std::vector<size_t> perstruct_cnt;
-
   std::vector<void*> ptrs;
-
-  perstruct_cnt.push_back(0);
-
-  for(uint64_t i{0}; i < sysc->value.size(); i++) {
-    // value not in a structure
-    if(!sysc->sinfo.get_deep(i)) {
-
-      if(i && sysc->sinfo.get_deep(i) < sysc->sinfo.get_deep(i-1)) {
-        for(uint64_t j{0}; j < sysc->sinfo.get_deep(i-1) - sysc->sinfo.get_deep(i); j++) {
-          if(!size.size()) break;
-          size.pop_back();
-          offsets.pop_back();
-          perstruct_cnt.pop_back();
-        }
-      }
-      SETVAL(args, sysc->value);
-
-    // value in deeper structure than before
-    } else if(i && sysc->sinfo.get_deep(i) > sysc->sinfo.get_deep(i-1)) {
-
-      if(sysc->sinfo.get_deep(i-1)) {
-        REALLOC_STRUCT(args);
-      }
-      for(uint64_t j{0}; j < sysc->sinfo.get_deep(i) - sysc->sinfo.get_deep(i-1); j++) {
-        ALLOC_STRUCT(args);
-      }
-      SETVAL(args, sysc->value);
-
-    // value in same structure depth than before
-    } else if(i && sysc->sinfo.get_deep(i) == sysc->sinfo.get_deep(i-1)) {
-
-      REALLOC_STRUCT(args);
-      SETVAL(args, sysc->value);
-
-    // value in less deep structure than before
-    } else if(i && sysc->sinfo.get_deep(i) < sysc->sinfo.get_deep(i-1)) {
-
-      for(uint64_t j{0}; j < sysc->sinfo.get_deep(i-1) - sysc->sinfo.get_deep(i); j++) {
-        if(size.size() == 1) break;
-        size.pop_back();
-        offsets.pop_back();
-        perstruct_cnt.pop_back();
-      }
-
-      // value in same structure than values before i-1
-      if(sysc->sinfo.get(i, sysc->sinfo.get_deep(i)) == sysc->sinfo.get(i-1, sysc->sinfo.get_deep(i))) {
-
-        REALLOC_STRUCT(args);
-        SETVAL(args, sysc->value);
-
-      // value in same structure depth than values before i-1, but new struct
-      } else if(sysc->sinfo.get(i, sysc->sinfo.get_deep(i)) > sysc->sinfo.get(i-1, sysc->sinfo.get_deep(i))) {
-
-        REALLOC_STRUCT(args);
-        for(uint64_t j{0}; j < sysc->sinfo.get_deep(i) - sysc->sinfo.get_deep(i-1); j++) {
-          ALLOC_STRUCT(args);
-        }
-        SETVAL(args, sysc->value);
-
-      }
-    // handle other scenarios
-    } else if(sysc->sinfo.get_deep(i)) {
-
-      for(uint64_t j{0}; j < sysc->sinfo.get_deep(i); j++) {
-        ALLOC_STRUCT(args);
-      }
-      SETVAL(args, sysc->value);
-
-    }
-  }
+  uint64_t *args{parse_data<syscall_op_t>(sysc, &ptrs)};
 
   switch(sysc->size) {
     case 0:
