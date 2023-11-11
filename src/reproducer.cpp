@@ -194,8 +194,6 @@ auto parse_next(std::ifstream &f) -> prog_t * {
     return NULL;
   }
 
-  getline(f, tmp, '\n'); f.get();
-
   return ret;
 }
 
@@ -210,13 +208,13 @@ auto execute_program(prog_t *program) -> pid_t {
 
     for(auto i{0}; i < program->nops; i++) {
       switch(program->inuse) {
-        case 0:
+        case SYSCALL:
         execute(program->op.sysc->at(i));
         break;
-        case 1:
+        case SYSDEVPROC:
         execute(program->op.sdp->at(i));
         break;
-        case 2:
+        case SOCKET:
         execute(program->op.sock->at(i));
         break;
       }
