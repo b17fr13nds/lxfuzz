@@ -243,13 +243,13 @@ public:
     size.back() += 8;\
     auto ptr{reinterpret_cast<void*>(deref(x, &offsets)[perstruct_cnt.at(perstruct_cnt.size()-2)-1])};\
     size_t i{0};\
-    for(; i < ptrs.size(); i++) {\
-      if(ptrs.at(i) == ptr) {\
-        ptrs.at(i) = realloc(reinterpret_cast<void*>(ptr),size.back());\
+    for(; i < ptrs->size(); i++) {\
+      if(ptrs->at(i) == ptr) {\
+        ptrs->at(i) = realloc(reinterpret_cast<void*>(ptr),size.back());\
         break;\
       }\
     }\
-    deref(x, &offsets)[perstruct_cnt.at(perstruct_cnt.size()-2)-1] = reinterpret_cast<uint64_t>(ptrs.at(i));\
+    deref(x, &offsets)[perstruct_cnt.at(perstruct_cnt.size()-2)-1] = reinterpret_cast<uint64_t>(ptrs->at(i));\
     offsets.push_back(tmp);\
   }\
 }
@@ -259,8 +259,8 @@ public:
     bool existing{false};\
     auto buf{malloc(8)};\
     deref(x, &offsets)[perstruct_cnt.back()] = reinterpret_cast<uint64_t>(buf);\
-    for(auto e : ptrs) if(e == buf) existing = true;\
-    if(!existing) ptrs.push_back(buf);\
+    for(auto e : *ptrs) if(e == buf) existing = true;\
+    if(!existing) ptrs->push_back(buf);\
     offsets.push_back(perstruct_cnt.back());\
     perstruct_cnt.back()++;\
     perstruct_cnt.push_back(0);\
@@ -356,6 +356,88 @@ inline auto create_data(T *op, int32_t qwords) -> void {
 
   op->size = qwords;
   return;
+}
+
+template <typename T>
+inline auto parse_data(T *op, std::vector<void*> *ptrs) -> uint64_t * {
+  uint64_t *args = new uint64_t[op->size+2];
+
+  std::vector<size_t> size;
+  std::vector<size_t> offsets;
+  std::vector<size_t> perstruct_cnt;
+
+  perstruct_cnt.push_back(0);
+
+  for(uint64_t i{0}; i < op->value.size(); i++) {
+    // value not in a structure
+    if(!op->sinfo.get_deep(i)) {
+
+      if(i && op->sinfo.get_deep(i) < op->sinfo.get_deep(i-1)) {
+        for(uint64_t j{0}; j < op->sinfo.get_deep(i-1) - op->sinfo.get_deep(i); j++) {
+          if(!size.size()) break;
+          size.pop_back();
+          offsets.pop_back();
+          perstruct_cnt.pop_back();
+        }
+      }
+      SETVAL(args, op->value);
+
+    // value in deeper structure than before
+    } else if(i && op->sinfo.get_deep(i) > op->sinfo.get_deep(i-1)) {
+
+      if(op->sinfo.get_deep(i-1)) {
+        REALLOC_STRUCT(args);
+      }
+      for(uint64_t j{0}; j < op->sinfo.get_deep(i) - op->sinfo.get_deep(i-1); j++) {
+        ALLOC_STRUCT(args);
+      }
+      SETVAL(args, op->value);
+
+    // value in same structure depth than before
+    } else if(i && op->sinfo.get_deep(i) == op->sinfo.get_deep(i-1)) {
+
+      REALLOC_STRUCT(args);
+      SETVAL(args, op->value);
+
+    // value in less deep structure than before
+    } else if(i && op->sinfo.get_deep(i) < op->sinfo.get_deep(i-1)) {
+
+      for(uint64_t j{0}; j < op->sinfo.get_deep(i-1) - op->sinfo.get_deep(i); j++) {
+        if(size.size() == 1) break;
+        size.pop_back();
+        offsets.pop_back();
+        perstruct_cnt.pop_back();
+      }
+
+      // value in same structure than values before i-1
+      if(op->sinfo.get(i, op->sinfo.get_deep(i)) == op->sinfo.get(i-1, op->sinfo.get_deep(i))) {
+
+        REALLOC_STRUCT(args);
+        SETVAL(args, op->value);
+
+      // value in same structure depth than values before i-1, but new struct
+      } else if(op->sinfo.get(i, op->sinfo.get_deep(i)) > op->sinfo.get(i-1, op->sinfo.get_deep(i))) {
+
+        REALLOC_STRUCT(args);
+        for(uint64_t j{0}; j < op->sinfo.get_deep(i) - op->sinfo.get_deep(i-1); j++) {
+          ALLOC_STRUCT(args);
+        }
+        SETVAL(args, op->value);
+
+      }
+    
+    // handle other scenarios
+    } else if(op->sinfo.get_deep(i)) {
+
+      for(uint64_t j{0}; j < op->sinfo.get_deep(i); j++) {
+        ALLOC_STRUCT(args);
+      }
+      SETVAL(args, op->value);
+
+    }
+  }
+
+  return args;
 }
 
 extern std::vector<std::string> virtual_dev_names;
