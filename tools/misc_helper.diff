@@ -49,7 +49,7 @@ index 5f7a306..cecf170 100644
 +    }
 +
 +    if(write(fds[thread_no], (char *)data, strlen((char *)data)) == -1) perror("write");
-+    if(write(fds[thread_no], "\x0a\x00", 2) == -1) perror("write");
++    if(write(fds[thread_no], "\x0a", 1) == -1) perror("write");
 +
 +    free(data);
 +}

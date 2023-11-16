@@ -52,7 +52,7 @@ auto parse_syscall(std::ifstream &f) -> prog_t* {
     PARSE_VALUES_SYSCALL(sysc, ')');
 
 out:
-    getline(f, tmp, '\n'); f.get();
+    getline(f, tmp, '\n');
     ret->op.sysc->push_back(sysc);
   } while(f.peek() != '-' && !f.eof());
 
@@ -74,7 +74,7 @@ auto parse_sysdevproc(std::ifstream &f) -> prog_t* {
   readuntil(f, ", ");
   ret->prot = std::stoi(readuntil(f, ")"));
 
-  getline(f, tmp, '\n'); f.get();
+  getline(f, tmp, '\n');
 
   fd = open(ret->devname.c_str(), ret->prot);
 
@@ -108,7 +108,7 @@ auto parse_sysdevproc(std::ifstream &f) -> prog_t* {
       sdpop->size = std::stoi(tmp);
     }
 
-    getline(f, tmp, '\n'); f.get();
+    getline(f, tmp, '\n');
     ret->op.sdp->push_back(sdpop);
   } while(f.peek() != '-' && !f.eof());
 
@@ -128,7 +128,7 @@ auto parse_socket(std::ifstream &f) -> prog_t* {
   ret->domain = std::stoi(readuntil(f, ","));
   ret->type = std::stoi(readuntil(f, ","));
 
-  getline(f, tmp, '\n'); f.get();
+  getline(f, tmp, '\n');
 
   fd = socket(ret->domain, ret->type, 0);
 
@@ -171,7 +171,7 @@ auto parse_socket(std::ifstream &f) -> prog_t* {
       PARSE_VALUES(sop, ')');
     }
 
-    getline(f, tmp, '\n'); f.get();
+    getline(f, tmp, '\n');
     ret->op.sock->push_back(sop);
   } while(f.peek() != '-' && !f.eof());
 
