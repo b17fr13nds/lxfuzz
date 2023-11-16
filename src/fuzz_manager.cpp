@@ -13,8 +13,10 @@
 #include "fuzz_manager.h"
 
 std::vector<instance_t*> instances;
+class screen_buffer sbuf;
 
 auto print_usage_and_exit(char **argv) -> void {
+  endwin();
   std::cout << argv[0] << ": <instances> <fuzzer options...>" << std::endl;
   exit(0);
 }
@@ -31,10 +33,23 @@ auto parse_cmdline(int32_t instance_no) -> const char ** {
 
   f.open("./cmdline.cfg");
 
+
+  (sbuf << "qemu cmdline: ").print(5,15);
+  int col{5}, line{16};
   while(!f.eof()) {
     getline(f, tmp, '|');
+
+    if(tmp.size() + col > 78) {
+      line++;
+      col = 5;
+    }
+    (sbuf << tmp).print(col,line);
+    col += tmp.size() + 1;
+
     v->push_back(tmp);
   }
+  
+  update_boxes();
 
   v->push_back("-fi");
   v->push_back(std::to_string(instance_no));
@@ -135,6 +150,8 @@ auto save_crash(int32_t instance_no) -> void {
 }
 
 auto cleanup(int32_t x) -> void {
+  endwin();
+
   if(mq_unlink("/fuzzer") == -1) perror("mq_unlink");
 
   for(uint64_t i{0}; i < instances.size(); i++)
@@ -160,7 +177,13 @@ auto main(int32_t argc, char **argv) -> int32_t {
   std::string fuzzer_args{};
   mqd_t desc{0};
 
-  std::cout << "welcome to lxfuzz v0.0.1" << std::endl;
+  initscr();
+  (sbuf << "lxfuzz kernel fuzzer (v0.0.1)").print(26,0);
+  (sbuf << "instances: down").print(6,2);
+  (sbuf << "fuzzer: starting").print(59,2);
+  (sbuf << "stats").print(5,4);
+  (sbuf << "message log").print(41,4);
+  update_boxes();
 
   if(argc < 2) print_usage_and_exit(argv);
   fuzzer_args = parse_fuzzer_args(&argv[2]);
@@ -169,8 +192,6 @@ auto main(int32_t argc, char **argv) -> int32_t {
 
   desc = mq_open("/fuzzer", O_RDONLY|O_CREAT|O_NONBLOCK, S_IRWXU|S_IRWXG|S_IRWXO, &attr);
   if(desc == -1) error("mq_open");
-
-  std::cout << "starting instance" << std::endl;
 
   for(auto i{0}; i < ninstances; i++) {
     std::filesystem::create_directory("./kernel/data/instance" + std::to_string(i));
@@ -186,7 +207,10 @@ auto main(int32_t argc, char **argv) -> int32_t {
   for(auto i{0}; i < ninstances; i++)
     start_instance(i, fuzzer_args);
 
-  std::cout << "instance started; fuzzer ready" << std::endl;
+  (sbuf << "instances: up         ").print(6,2);
+  (sbuf << "fuzzer: running ").print(59,2);
+  update_boxes();
+
   stats_t tmp{0}, tot{0};
 
   while(1) {
@@ -196,7 +220,8 @@ auto main(int32_t argc, char **argv) -> int32_t {
 retry:
 
       if(!check_if_alive(i)) {
-        std::cout << "instance " << i << " crashed!" << std::endl;
+        (sbuf << "instance " << i << " crashed!        ").print(44,8);
+        (sbuf << "instances: up (1 down)").print(6,2);
 
         save_crash(i);
 
@@ -209,7 +234,8 @@ retry:
         crashes++;
         instances.at(i)->crashes++;
 
-        std::cout << "instance " << i << " brought back up!" << std::endl;
+        (sbuf << "instance " << i << " brought back up!").print(44,8);
+        (sbuf << "instances: up         ").print(6,2);
       } else {
         if(mq_receive(desc, (char *)&tmp, sizeof(stats_t), 0) == -1) goto retry;
 
@@ -218,28 +244,42 @@ retry:
       }
 
       if(!check_if_log_activity(i)) {
-        std::cout << "instance " << i << " hangs!" << std::endl;
+        (sbuf << "instance " << i << " hangs!          ").print(44,8);
+        (sbuf << "instances: up (1 down)").print(6,2);
 
         stop_instance(i);
 
 	      for(size_t j{0}; j < number_of_files_in_directory("./kernel/data/instance" + std::to_string(i)); j++)
           instances.at(i)->logsizes[j] = 0;
 
+        for (const auto& e : std::filesystem::directory_iterator("./kernel/data/instance" + std::to_string(i)))
+          std::filesystem::remove_all(e.path());
+
         prepare_instance(i);
         start_instance(i, fuzzer_args);
 
-        std::cout << "instance " << i << " brought back up!" << std::endl;
+        (sbuf << "instance " << i << " brought back up!").print(44,8);
+        (sbuf << "instances: up         ").print(6,2);
       }
     }
 
-    tot.execs_per_sec /= ninstances;
+    tot.execs_per_sec /= ninstances;    
 
-    std::cout << "total execs: " << tot.total_execs << std::endl;
-    std::cout << "execs per second: " << tot.execs_per_sec << std::endl;
-    std::cout << "crashes: " << crashes << std::endl;
+    (sbuf << "total execs: " << tot.total_execs).print(8,7);
+    (sbuf << "execs per second: " << tot.execs_per_sec).print(8,8);
+    (sbuf << "crashes: " << crashes).print(8,9);
+
+    uint64_t total_logsize{0};
+    for(auto i{0}; i < ninstances; i++) {
+      for(size_t j{0}; j < number_of_files_in_directory("./kernel/data/instance" + std::to_string(i)); j++)
+        total_logsize += instances.at(i)->logsizes[j];
+    }
+
+    (sbuf << "number of instances: " << ninstances).print(5,12);
+    (sbuf << "total log size: " << total_logsize << " bytes").print(5,13);
+
+    update_boxes();
   }
-
-  if(mq_unlink("/fuzzer") == -1) perror("mq_unlink");
 
   return 0;
 }
