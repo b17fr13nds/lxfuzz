@@ -45,6 +45,6 @@ all fuzzing logs are saved in `./kernel/data/`. each instance got an own directo
 
 *WARNING: the log folders and files grow extremely large after some time. make sure to keep track of them and keep removing old log data (i.e. by a shell script)*
 
-if the manager encounters a crash, the whole log directory of the corresponding instance is copied and saved.
+if the manager encounters a crash, the whole log directory of the corresponding instance is copied and saved. the active logfiles get cleared whenever a crash or hang occurs
 
 to reproduce crashes, copy the folder containing the crashes to the default startup working directory of the machine alongside with the `reproducer` binary. make sure the folder is named `crash/`. running `repro_manager` will try to reproduce the crash and will notify if successful. you can try to reduce the log data in `crash/` while still reproducing successfully, until you get to a point where you're able to understand the crash and create a POC.

@@ -1,3 +1,41 @@
+#include <sstream>
+#include <curses.h>
+
+class screen_buffer {
+public:
+  std::stringstream ss;
+
+  template <typename T>
+  auto operator<<(T data) {
+    ss << data;
+    return std::move(*this);
+  }
+
+  void print(int x, int y) {
+    mvwaddstr(stdscr, y, x, ss.str().c_str());
+    refresh();
+    ss.str(std::string());
+  } 
+};
+
+inline auto rectangle(int x1, int y1, int x2, int y2) -> void {
+    mvhline(y1, x1, 0, x2-x1);
+    mvhline(y2, x1, 0, x2-x1);
+    mvvline(y1, x1, 0, y2-y1);
+    mvvline(y1, x2, 0, y2-y1);
+    mvaddch(y1, x1, ACS_ULCORNER);
+    mvaddch(y2, x1, ACS_LLCORNER);
+    mvaddch(y1, x2, ACS_URCORNER);
+    mvaddch(y2, x2, ACS_LRCORNER);
+}
+
+inline auto update_boxes() -> void {
+  rectangle(4,5,39,11);
+  rectangle(40,5,75,11);
+  rectangle(0,1,79,23);
+  refresh();
+}
+
 typedef struct {
   uint64_t total_execs;
   double execs_per_sec;
@@ -11,7 +49,7 @@ typedef struct {
   uint64_t* logsizes;
 } instance_t;
 
-inline void error(const char *str) {
+inline auto error(const char *str) -> void {
   perror(str);
   exit(-1);
 }

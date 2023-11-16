@@ -1,15 +1,15 @@
-CFLAGS = -O3 -Wall -lpthread -lrt -Wno-unused-result -gdwarf-4 -gstrict-dwarf -g -Wno-delete-incomplete -Wno-pointer-arith -static 
+CFLAGS = -O3 -Wall -lpthread -lrt
 CXX = g++ -std=c++2a
 TARGET_CXX = g++ -std=c++2a
 
 fuzzer: ./src/fuzzer.cpp
-	$(TARGET_CXX) ./src/fuzzer.cpp ./src/mutator.cpp ./src/syscall_generator.cpp ./src/syscall_executor.cpp ./src/sysdevproc_generator.cpp ./src/sysdevproc_executor.cpp ./src/socket_generator.cpp ./src/socket_executor.cpp ./src/hypercall.c -o ./fuzzer $(CFLAGS)
+	$(TARGET_CXX) ./src/fuzzer.cpp ./src/mutator.cpp ./src/syscall_generator.cpp ./src/syscall_executor.cpp ./src/sysdevproc_generator.cpp ./src/sysdevproc_executor.cpp ./src/socket_generator.cpp ./src/socket_executor.cpp ./src/hypercall.c -o ./fuzzer $(CFLAGS) -Wno-unused-result -Wno-delete-incomplete -Wno-pointer-arith -static
 
 fuzz_manager: ./src/fuzz_manager.cpp
-	$(CXX) ./src/fuzz_manager.cpp $(CFLAGS) -o fuzz_manager -Wno-write-strings
+	$(CXX) ./src/fuzz_manager.cpp $(CFLAGS) -o fuzz_manager -lncurses -Wno-write-strings
 
 reproducer:
-	$(TARGET_CXX) ./src/reproducer.cpp ./src/syscall_executor.cpp ./src/sysdevproc_executor.cpp ./src/socket_executor.cpp -o ./reproducer $(CFLAGS)
+	$(TARGET_CXX) ./src/reproducer.cpp ./src/syscall_executor.cpp ./src/sysdevproc_executor.cpp ./src/socket_executor.cpp -o ./reproducer $(CFLAGS) -Wno-unused-result -Wno-delete-incomplete -Wno-pointer-arith -static
 
 repro_manager: ./src/repro_manager.cpp
 	$(CXX) ./src/repro_manager.cpp $(CFLAGS) -o repro_manager -Wno-write-strings
