@@ -157,8 +157,8 @@ public:
     }
   }
 
-  uint8_t nops;
-  uint8_t inuse;
+  uint32_t nops;
+  uint32_t inuse;
   union {
     std::vector<syscall_op_t*> *sysc;
     std::vector<sysdevproc_op_t*> *sdp;

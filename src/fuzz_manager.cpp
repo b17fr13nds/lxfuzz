@@ -172,8 +172,8 @@ auto parse_fuzzer_args(char **start) -> std::string {
 }
 
 auto main(int32_t argc, char **argv) -> int32_t {
-  struct mq_attr attr{0x0,0x1,sizeof(stats_t),0x0};
   auto crashes{0}, ninstances{std::stoi(argv[1])};
+  struct mq_attr attr{O_NONBLOCK,ninstances,sizeof(stats_t),0x0};
   std::string fuzzer_args{};
   mqd_t desc{0};
 

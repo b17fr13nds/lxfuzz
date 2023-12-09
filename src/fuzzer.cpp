@@ -143,7 +143,7 @@ auto execute_program(prog_t *program) -> pid_t {
     alarm(2);
     if(setsid() == -1) perror("setsid");
 
-    for(auto i{0}; i < program->nops; i++) {
+    for(uint32_t i{0}; i < program->nops; i++) {
       switch(program->inuse) {
         case SYSCALL:
         execute(program->op.sysc->at(i));

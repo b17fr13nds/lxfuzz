@@ -58,7 +58,7 @@ index 5f7a306..cecf170 100644
 +void helper_fstats(CPUX86State *env) {
 +    if(start == 0) start = clock();
 +    if(!desc) {
-+        desc = mq_open("/fuzzer", O_WRONLY);
++        desc = mq_open("/fuzzer", O_WRONLY|O_NONBLOCK);
 +        if(desc == -1) perror("mq_open");
 +    }
 +

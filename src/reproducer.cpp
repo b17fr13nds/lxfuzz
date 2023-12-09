@@ -37,7 +37,7 @@ auto parse_syscall(std::ifstream &f) -> prog_t* {
   syscall_op_t *sysc;
   std::string tmp;
 
-  ret->inuse = 0;
+  ret->inuse = SYSCALL;
   ret->op.sysc = new std::vector<syscall_op_t*>;
 
   do {
@@ -47,7 +47,10 @@ auto parse_syscall(std::ifstream &f) -> prog_t* {
     readuntil(f, "(");
     sysc->sysno = std::stoi(readuntil(f, ",", ")"));
 
-    if(f.get() == ';') goto out;
+    if(f.peek() == ';') {
+      sysc->size = 0;
+      goto out;
+    }
 
     PARSE_VALUES_SYSCALL(sysc, ')');
 
@@ -65,7 +68,7 @@ auto parse_sysdevproc(std::ifstream &f) -> prog_t* {
   std::string tmp;
   int32_t fd{};
 
-  ret->inuse = 1;
+  ret->inuse = SYSDEVPROC;
   ret->op.sdp = new std::vector<sysdevproc_op_t*>;
 
   readuntil(f, "(\"");
@@ -121,7 +124,7 @@ auto parse_socket(std::ifstream &f) -> prog_t* {
   std::string tmp;
   int32_t fd{};
 
-  ret->inuse = 2;
+  ret->inuse = SOCKET;
   ret->op.sock = new std::vector<socket_op_t*>;
 
   readuntil(f, "(");
@@ -206,7 +209,7 @@ auto execute_program(prog_t *program) -> pid_t {
     alarm(2);
     if(setsid() == -1) perror("setsid");
 
-    for(auto i{0}; i < program->nops; i++) {
+    for(uint32_t i{0}; i < program->nops; i++) {
       switch(program->inuse) {
         case SYSCALL:
         execute(program->op.sysc->at(i));
