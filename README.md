@@ -5,7 +5,7 @@ lxfuzz is a grey-box kernel fuzzer used for linux. it is scalable because of qem
 
 first, install build dependencies (example debian-based):
 ```
-wget git make gcc g++ flex bc bison pkg-config ninja-build libssl-dev libglib2.0-dev bzip2 libpixman-1-dev libelf-dev
+wget git make gcc g++ flex bc bison pkg-config ninja-build libssl-dev libglib2.0-dev bzip2 libpixman-1-dev libelf-dev libncurses5-dev
 ```
 
 of course, you will need a properly built linux kernel. following options should be enabled
