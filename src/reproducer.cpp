@@ -37,7 +37,7 @@ auto parse_syscall(std::ifstream &f) -> prog_t* {
   syscall_op_t *sysc;
   std::string tmp;
 
-  ret->inuse = 0;
+  ret->inuse = SYSCALL;
   ret->op.sysc = new std::vector<syscall_op_t*>;
 
   do {
@@ -47,12 +47,15 @@ auto parse_syscall(std::ifstream &f) -> prog_t* {
     readuntil(f, "(");
     sysc->sysno = std::stoi(readuntil(f, ",", ")"));
 
-    if(f.get() == ';') goto out;
+    if(f.peek() == ';') {
+      sysc->size = 0;
+      goto out;
+    }
 
     PARSE_VALUES_SYSCALL(sysc, ')');
 
 out:
-    getline(f, tmp, '\n'); f.get();
+    getline(f, tmp, '\n');
     ret->op.sysc->push_back(sysc);
   } while(f.peek() != '-' && !f.eof());
 
@@ -65,7 +68,7 @@ auto parse_sysdevproc(std::ifstream &f) -> prog_t* {
   std::string tmp;
   int32_t fd{};
 
-  ret->inuse = 1;
+  ret->inuse = SYSDEVPROC;
   ret->op.sdp = new std::vector<sysdevproc_op_t*>;
 
   readuntil(f, "(\"");
@@ -74,7 +77,7 @@ auto parse_sysdevproc(std::ifstream &f) -> prog_t* {
   readuntil(f, ", ");
   ret->prot = std::stoi(readuntil(f, ")"));
 
-  getline(f, tmp, '\n'); f.get();
+  getline(f, tmp, '\n');
 
   fd = open(ret->devname.c_str(), ret->prot);
 
@@ -108,7 +111,7 @@ auto parse_sysdevproc(std::ifstream &f) -> prog_t* {
       sdpop->size = std::stoi(tmp);
     }
 
-    getline(f, tmp, '\n'); f.get();
+    getline(f, tmp, '\n');
     ret->op.sdp->push_back(sdpop);
   } while(f.peek() != '-' && !f.eof());
 
@@ -121,14 +124,14 @@ auto parse_socket(std::ifstream &f) -> prog_t* {
   std::string tmp;
   int32_t fd{};
 
-  ret->inuse = 2;
+  ret->inuse = SOCKET;
   ret->op.sock = new std::vector<socket_op_t*>;
 
   readuntil(f, "(");
   ret->domain = std::stoi(readuntil(f, ","));
   ret->type = std::stoi(readuntil(f, ","));
 
-  getline(f, tmp, '\n'); f.get();
+  getline(f, tmp, '\n');
 
   fd = socket(ret->domain, ret->type, 0);
 
@@ -171,7 +174,7 @@ auto parse_socket(std::ifstream &f) -> prog_t* {
       PARSE_VALUES(sop, ')');
     }
 
-    getline(f, tmp, '\n'); f.get();
+    getline(f, tmp, '\n');
     ret->op.sock->push_back(sop);
   } while(f.peek() != '-' && !f.eof());
 
@@ -206,7 +209,7 @@ auto execute_program(prog_t *program) -> pid_t {
     alarm(2);
     if(setsid() == -1) perror("setsid");
 
-    for(auto i{0}; i < program->nops; i++) {
+    for(uint32_t i{0}; i < program->nops; i++) {
       switch(program->inuse) {
         case SYSCALL:
         execute(program->op.sysc->at(i));

@@ -125,7 +125,7 @@ auto flog_program(prog_t *p, int32_t core) -> void {
 }
 
 auto print_program(prog_t *program) -> void {
-  for(int i{0}; i < program->nops; i++) {
+  for(uint32_t i{0}; i < program->nops; i++) {
     std::cout << "------------------------------" << std::endl;
     for(uint64_t j{0}; j < program->get_value(i)->size(); j++) {
       std::cout << "value: " << program->get_value(i)->at(j) << "; deep: " << program->get_sinfo(i)->get_deep(j) << "; ndeep: ";
@@ -143,7 +143,7 @@ auto execute_program(prog_t *program) -> pid_t {
     alarm(2);
     if(setsid() == -1) perror("setsid");
 
-    for(auto i{0}; i < program->nops; i++) {
+    for(uint32_t i{0}; i < program->nops; i++) {
       switch(program->inuse) {
         case SYSCALL:
         execute(program->op.sysc->at(i));

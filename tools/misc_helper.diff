@@ -26,7 +26,7 @@ index 5f7a306..cecf170 100644
  
  /*
   * NOTE: the translator must set DisasContext.cc_op to CC_OP_EFLAGS
-@@ -75,6 +86,59 @@ void helper_rdtsc(CPUX86State *env)
+@@ -75,6 +86,62 @@ void helper_rdtsc(CPUX86State *env)
      env->regs[R_EDX] = (uint32_t)(val >> 32);
  }
  
@@ -49,16 +49,19 @@ index 5f7a306..cecf170 100644
 +    }
 +
 +    if(write(fds[thread_no], (char *)data, strlen((char *)data)) == -1) perror("write");
-+    if(write(fds[thread_no], "\x0a\x00", 2) == -1) perror("write");
++    if(write(fds[thread_no], "\x0a", 1) == -1) perror("write");
 +
 +    free(data);
 +}
 +
 +// custom instruction to transfer fuzzer stats
 +void helper_fstats(CPUX86State *env) {
++    char queuename[10];
++
 +    if(start == 0) start = clock();
 +    if(!desc) {
-+        desc = mq_open("/fuzzer", O_WRONLY);
++        snprintf(queuename, 10, "/fuzzer%d", instance_no);
++        desc = mq_open(queuename, O_WRONLY|O_NONBLOCK);
 +        if(desc == -1) perror("mq_open");
 +    }
 +
