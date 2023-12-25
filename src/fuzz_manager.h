@@ -1,22 +1,6 @@
 #include <sstream>
+#include <mutex>
 #include <curses.h>
-
-class screen_buffer {
-public:
-  std::stringstream ss;
-
-  template <typename T>
-  auto operator<<(T data) {
-    ss << data;
-    return std::move(*this);
-  }
-
-  void print(int x, int y) {
-    mvwaddstr(stdscr, y, x, ss.str().c_str());
-    refresh();
-    ss.str(std::string());
-  } 
-};
 
 inline auto rectangle(int x1, int y1, int x2, int y2) -> void {
     mvhline(y1, x1, 0, x2-x1);
@@ -29,11 +13,20 @@ inline auto rectangle(int x1, int y1, int x2, int y2) -> void {
     mvaddch(y2, x2, ACS_LRCORNER);
 }
 
+std::mutex screen_lock;
+
 inline auto update_boxes() -> void {
   rectangle(4,5,39,11);
   rectangle(40,5,75,11);
   rectangle(0,1,79,23);
+}
+
+inline auto write_screen(int x, int y, std::string data) -> void {
+  screen_lock.lock();
+  mvwaddstr(stdscr, y, x, data.c_str());
+  update_boxes();
   refresh();
+  screen_lock.unlock();
 }
 
 typedef struct {
@@ -43,20 +36,19 @@ typedef struct {
 } stats_t;
 
 typedef struct {
-  int32_t fd;
   int32_t pid;
   int32_t crashes;
   uint64_t* logsizes;
 } instance_t;
 
 inline auto error(const char *str) -> void {
+  endwin();
   perror(str);
   exit(-1);
 }
 
 auto print_usage_and_exit(char **) -> void;
 auto parse_cmdline(int32_t) -> const char **;
-auto prepare_instance(int32_t) -> void;
 auto start_instance(int32_t, std::string) -> void;
 auto stop_instance(int32_t) -> void;
 auto check_if_alive(int32_t) -> bool;
