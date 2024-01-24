@@ -3,28 +3,29 @@
 #include <unistd.h>
 #include "fuzzer.h"
 
-auto execute(sysdevproc_op_t* sdpop) -> void {
-  std::vector<void*> ptrs;
-  uint64_t *args{parse_data<sysdevproc_op_t>(sdpop, &ptrs)};
+auto execute_sysdevprocop(prog_t* program) -> void {
+  std::vector<uint64_t*> args;
+  sysdevproc_op_t *sdpop{nullptr};
 
-  switch(sdpop->option) {
-    case 0:
-    ioctl(sdpop->fd, sdpop->request, args);
-    break;
-    case 1:
-    break;
-    read(sdpop->fd, args, sdpop->size);
-    break;
-    case 2:
-    write(sdpop->fd, args, sdpop->size);
-    break;
+  for(uint32_t i{0}; i < program->nops; i++)
+    args.push_back(parse_data<sysdevproc_op_t>(program->op.sdp->at(i)));
+
+  for(uint32_t i{0}; i < program->nops; i++) {
+    sdpop = program->op.sdp->at(i);
+
+    switch(sdpop->option) {
+      case 0:
+      ioctl(program->fd, sdpop->request, args.at(i));
+      break;
+      case 1:
+      break;
+      read(program->fd, args.at(i), sdpop->size);
+      break;
+      case 2:
+      write(program->fd, args.at(i), sdpop->size);
+      break;
+    }
   }
-
-  for(auto e : ptrs) {
-    delete e;
-  }
-
-  delete [] args;
 
   return;
 }

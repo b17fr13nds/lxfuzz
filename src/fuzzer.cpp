@@ -143,21 +143,17 @@ auto execute_program(prog_t *program) -> pid_t {
     alarm(2);
     if(setsid() == -1) perror("setsid");
 
-    for(uint32_t i{0}; i < program->nops; i++) {
-      switch(program->inuse) {
-        case SYSCALL:
-        execute(program->op.sysc->at(i));
-        break;
-        case SYSDEVPROC:
-        execute(program->op.sdp->at(i));
-        break;
-        case SOCKET:
-        execute(program->op.sock->at(i));
-        break;
-      }
+    switch(program->inuse) {
+      case SYSCALL:
+      execute_syscallop(program);
+      break;
+      case SYSDEVPROC:
+      execute_sysdevprocop(program);
+      break;
+      case SOCKET:
+      execute_socketop(program);
+      break;
     }
-
-    delete program;
 
     exit(0);
     case -1:
