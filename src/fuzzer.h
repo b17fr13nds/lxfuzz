@@ -17,7 +17,7 @@
 
 #define PAGESIZE 0x1000
 
-inline void error(const char *str) {
+inline auto error(const char *str) -> void {
   perror(str);
   exit(-1);
 }
@@ -82,24 +82,16 @@ public:
 
 class sysdevproc_op_t : public base_op_t {
 public:
-  sysdevproc_op_t() : fd{0}, option{0}, request{0} {};
-  ~sysdevproc_op_t() {
-    close(fd);
-  }
+  sysdevproc_op_t() : option{0}, request{0} {};
 
-  int32_t fd;
   uint8_t option;
   uint64_t request;
 };
 
 class socket_op_t : public base_op_t {
 public:
-  socket_op_t() : fd{0}, option{0}, request{0}, optname{0} {};
-  ~socket_op_t() {
-    close(fd);
-  }
+  socket_op_t() : option{0}, request{0}, optname{0} {};
 
-  int32_t fd;
   uint8_t option;
   uint64_t request;
   int32_t optname;
@@ -120,12 +112,14 @@ public:
       for(uint64_t i{0}; i < op.sdp->size(); i++) {
         delete op.sdp->at(i);
       }
+      close(fd);
       delete op.sdp;
       break;
       case SOCKET:
       for(uint64_t i{0}; i < op.sock->size(); i++) {
         delete op.sock->at(i);
       }
+      close(fd);
       delete op.sock;
       break;
     }
@@ -167,9 +161,14 @@ public:
 
   std::string log;
 
+  // sockfd or devfd
+  int32_t fd;
+
+  // devices
   std::string devname;
   int32_t prot;
 
+  // sockets
   int32_t domain;
   int32_t type;
 };
@@ -241,26 +240,14 @@ public:
     size_t tmp{offsets.back()};\
     offsets.pop_back();\
     size.back() += 8;\
-    auto ptr{reinterpret_cast<void*>(deref(x, &offsets)[perstruct_cnt.at(perstruct_cnt.size()-2)-1])};\
-    size_t i{0};\
-    for(; i < ptrs->size(); i++) {\
-      if(ptrs->at(i) == ptr) {\
-        ptrs->at(i) = realloc(reinterpret_cast<void*>(ptr),size.back());\
-        break;\
-      }\
-    }\
-    deref(x, &offsets)[perstruct_cnt.at(perstruct_cnt.size()-2)-1] = reinterpret_cast<uint64_t>(ptrs->at(i));\
+    deref(x, &offsets)[perstruct_cnt.at(perstruct_cnt.size()-2)-1] = reinterpret_cast<uint64_t>(realloc(reinterpret_cast<void*>(deref(x, &offsets)[perstruct_cnt.at(perstruct_cnt.size()-2)-1]),size.back()));\
     offsets.push_back(tmp);\
   }\
 }
 
 #define ALLOC_STRUCT(x) {\
   {\
-    bool existing{false};\
-    auto buf{malloc(8)};\
-    deref(x, &offsets)[perstruct_cnt.back()] = reinterpret_cast<uint64_t>(buf);\
-    for(auto e : *ptrs) if(e == buf) existing = true;\
-    if(!existing) ptrs->push_back(buf);\
+    deref(x, &offsets)[perstruct_cnt.back()] = reinterpret_cast<uint64_t>(malloc(8));\
     offsets.push_back(perstruct_cnt.back());\
     perstruct_cnt.back()++;\
     perstruct_cnt.push_back(0);\
@@ -359,7 +346,7 @@ inline auto create_data(T *op, int32_t qwords) -> void {
 }
 
 template <typename T>
-inline auto parse_data(T *op, std::vector<void*> *ptrs) -> uint64_t * {
+inline auto parse_data(T *op) -> uint64_t * {
   uint64_t *args = new uint64_t[op->size+2];
 
   std::vector<size_t> size;
@@ -451,16 +438,16 @@ auto mutate_prog(prog_t *p) -> void;
 template <typename... T>
 auto exec_syscall(uint16_t, T...) -> void;
 auto exec_syscall(uint16_t) -> void;
-auto execute(syscall_op_t*) -> void;
+auto execute_syscallop(prog_t*) -> void;
 auto create_syscallop() -> syscall_op_t*;
 auto create_program1() -> prog_t*;
 
 auto open_device(prog_t*) -> int32_t;
-auto execute(sysdevproc_op_t*) -> void;
+auto execute_sysdevprocop(prog_t*) -> void;
 auto create_sysdevprocop() -> sysdevproc_op_t*;
 auto create_program2() -> prog_t*;
 
 auto open_socket(prog_t*) -> int32_t;
-auto execute(socket_op_t*) -> void;
+auto execute_socketop(prog_t*) -> void;
 auto create_socketop() -> socket_op_t*;
 auto create_program3() -> prog_t*;

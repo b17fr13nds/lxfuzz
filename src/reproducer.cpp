@@ -66,7 +66,6 @@ auto parse_sysdevproc(std::ifstream &f) -> prog_t* {
   prog_t *ret = new prog_t;
   sysdevproc_op_t *sdpop;
   std::string tmp;
-  int32_t fd{};
 
   ret->inuse = SYSDEVPROC;
   ret->op.sdp = new std::vector<sysdevproc_op_t*>;
@@ -79,12 +78,11 @@ auto parse_sysdevproc(std::ifstream &f) -> prog_t* {
 
   getline(f, tmp, '\n');
 
-  fd = open(ret->devname.c_str(), ret->prot);
+  ret->fd = open(ret->devname.c_str(), ret->prot);
 
   do {
     ret->nops++;
     sdpop = new sysdevproc_op_t;
-    sdpop->fd = fd;
     tmp = readuntil(f, "(");
 
     if(tmp == "ioctl(") {
@@ -122,7 +120,6 @@ auto parse_socket(std::ifstream &f) -> prog_t* {
   prog_t *ret = new prog_t;
   socket_op_t *sop;
   std::string tmp;
-  int32_t fd{};
 
   ret->inuse = SOCKET;
   ret->op.sock = new std::vector<socket_op_t*>;
@@ -133,12 +130,11 @@ auto parse_socket(std::ifstream &f) -> prog_t* {
 
   getline(f, tmp, '\n');
 
-  fd = socket(ret->domain, ret->type, 0);
+  ret->fd = socket(ret->domain, ret->type, 0);
 
   do {
     ret->nops++;
     sop = new socket_op_t;
-    sop->fd = fd;
     tmp = readuntil(f, "(");
 
     if(tmp == "setsockopt(") {
@@ -209,21 +205,17 @@ auto execute_program(prog_t *program) -> pid_t {
     alarm(2);
     if(setsid() == -1) perror("setsid");
 
-    for(uint32_t i{0}; i < program->nops; i++) {
-      switch(program->inuse) {
-        case SYSCALL:
-        execute(program->op.sysc->at(i));
-        break;
-        case SYSDEVPROC:
-        execute(program->op.sdp->at(i));
-        break;
-        case SOCKET:
-        execute(program->op.sock->at(i));
-        break;
-      }
+    switch(program->inuse) {
+      case SYSCALL:
+      execute_syscallop(program);
+      break;
+      case SYSDEVPROC:
+      execute_sysdevprocop(program);
+      break;
+      case SOCKET:
+      execute_socketop(program);
+      break;
     }
-
-    delete program;
 
     exit(0);
     case -1:

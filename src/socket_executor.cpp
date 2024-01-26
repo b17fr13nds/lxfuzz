@@ -4,37 +4,38 @@
 #include <sys/socket.h>
 #include "fuzzer.h"
 
-auto execute(socket_op_t* sop) -> void {
+auto execute_socketop(prog_t* program) -> void {
+  std::vector<uint64_t*> args;
+  socket_op_t *sop{nullptr};
+
   struct iovec iov[1];
   struct msghdr message{};
-  
-  std::vector<void*> ptrs;
-  uint64_t *args{parse_data<socket_op_t>(sop, &ptrs)};
 
-  switch(sop->option) {
-    case 0:
-    setsockopt(sop->fd, SOL_SOCKET, sop->optname, args, sop->size);
-    break;
-    case 1:
-    write(sop->fd, args, sop->size);
-    break;
-    case 2:
-    iov[0].iov_base = args;
-    iov[0].iov_len = sop->size;
-    message.msg_iov = iov;
-    message.msg_iovlen = 1;
-    sendmsg(sop->fd, &message, 0);
-    break;
-    case 3:
-    ioctl(sop->fd, sop->request, args);
-    break;
+  for(uint32_t i{0}; i < program->nops; i++)
+    args.push_back(parse_data<socket_op_t>(program->op.sock->at(i)));
+
+  for(uint32_t i{0}; i < program->nops; i++) {
+    sop = program->op.sock->at(i);
+
+    switch(sop->option) {
+      case 0:
+      setsockopt(program->fd, SOL_SOCKET, sop->optname, args.at(i), sop->size);
+      break;
+      case 1:
+      write(program->fd, args.at(i), sop->size);
+      break;
+      case 2:
+      iov[0].iov_base = args.at(i);
+      iov[0].iov_len = sop->size;
+      message.msg_iov = iov;
+      message.msg_iovlen = 1;
+      sendmsg(program->fd, &message, 0);
+      break;
+      case 3:
+      ioctl(program->fd, sop->request, args.at(i));
+      break;
+    }
   }
-
-  for(auto e : ptrs) {
-    delete e;
-  }
-
-  delete [] args;
 
   return;
 }

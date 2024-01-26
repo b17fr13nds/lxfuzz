@@ -36,16 +36,15 @@ auto create_socketop() -> socket_op_t* {
 
 auto create_program3() -> prog_t* {
   prog_t *program = new prog_t;
-  int32_t fd{open_socket(program)};
   auto n{get_random(1,8)};
 
   program->inuse = SOCKET;
   program->op.sock = new std::vector<socket_op_t*>;
   program->nops = n;
+  program->fd = open_socket(program);
 
   for(decltype(n) i{0}; i < n; i++) {
     program->op.sock->push_back(create_socketop());
-    program->op.sock->at(i)->fd = fd;
   }
 
   return program;

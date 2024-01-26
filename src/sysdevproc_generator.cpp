@@ -37,16 +37,15 @@ auto create_sysdevprocop() -> sysdevproc_op_t* {
 
 auto create_program2() -> prog_t* {
   prog_t *program = new prog_t;
-  int32_t fd{open_device(program)};
   auto n{get_random(1,8)};
 
   program->inuse = SYSDEVPROC;
   program->op.sdp = new std::vector<sysdevproc_op_t*>;
   program->nops = n;
+  program->fd = open_device(program);
 
   for(decltype(n) i{0}; i < n; i++) {
     program->op.sdp->push_back(create_sysdevprocop());
-    program->op.sdp->at(i)->fd = fd;
   }
 
   return program;
