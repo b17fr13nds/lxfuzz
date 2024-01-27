@@ -129,6 +129,7 @@ auto check_if_log_activity(int32_t idx) -> bool {
   size_t filesz;
 
   for(size_t i{0}; i < number_of_files_in_directory("./kernel/data/instance" + std::to_string(idx)); i++) {
+    if(!std::filesystem::exists("./kernel/data/instance" + std::to_string(idx) + "/log_t" + std::to_string(i))) continue;
     filesz = std::filesystem::file_size("./kernel/data/instance" + std::to_string(idx) + "/log_t" + std::to_string(i));
 
     if(filesz == instances.at(idx)->logsizes[i]) {
@@ -183,7 +184,7 @@ auto watch_instance(uint32_t instance_no, std::string fuzzer_args) -> void {
     auto ref = sc.now(); 
 
 retry:
-    if(static_cast<std::chrono::duration<double>>(sc.now() - ref).count() > 45.0) {
+    if(static_cast<std::chrono::duration<double>>(sc.now() - ref).count() > 120.0) {
       if(!check_if_alive(instance_no)) {
         write_screen(44, 8, std::string("instance ") + std::to_string(instance_no) + std::string(" crashed!        "));
         write_screen(6, 2, std::string("instances: up (1 down)"));
@@ -281,8 +282,10 @@ auto main(int32_t argc, char **argv) -> int32_t {
 
     uint64_t total_logsize{0};
     for(auto i{0}; i < ninstances; i++) {
-      for(size_t j{0}; j < number_of_files_in_directory("./kernel/data/instance" + std::to_string(i)); j++)
+      for(size_t j{0}; j < number_of_files_in_directory("./kernel/data/instance" + std::to_string(i)); j++) {
+        if(!std::filesystem::exists("./kernel/data/instance" + std::to_string(i) + "/log_t" + std::to_string(j))) continue;
         total_logsize += std::filesystem::file_size("./kernel/data/instance" + std::to_string(i) + "/log_t" + std::to_string(j));
+      }
     }
 
     write_screen(5, 12, std::string("number of instances: ") + std::to_string(ninstances));
