@@ -42,8 +42,10 @@ with `-n`, you can choose as many instances as your hardware can take.
 
 ###### optional arguments:
 `--timeout` specifies in seconds, how long no log activity should be ignored, until the `fuzz_manager` checks for hangs or crashes.
+
 use `--daemon` to run the fuzzer as a daemon in the background.
-`--userns` tell the fuzzer to make use of user namespaces.
+
+`--userns` tells the fuzzer to make use of user namespaces.
 
 ## logs and crashes
 
