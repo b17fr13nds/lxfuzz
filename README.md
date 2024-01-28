@@ -41,7 +41,7 @@ if everything is set up you can start the fuzzing manager
 with `-n`, you can choose as many instances as your hardware can take.
 
 ###### optional arguments:
-`--timeout` specifies in seconds, how long no log activity should be ignored, until the `fuzz_manager` checks for hangs or crashes.
+`--timeout` specifies in seconds, how long no log activity should be ignored, until the `fuzz_manager` checks for hangs or crashes. (default 60s)
 
 use `--daemon` to run the fuzzer as a daemon in the background.
 
