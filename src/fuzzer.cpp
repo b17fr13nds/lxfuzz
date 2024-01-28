@@ -13,6 +13,7 @@
 #include <sys/types.h>
 #include "fuzzer.h"
 #include "hypercall.h"
+#include "parse_args.h"
 
 std::random_device dev;
 std::vector<std::string> virtual_dev_names;
@@ -242,7 +243,7 @@ auto spawn_threads(void *unused) -> int32_t {
   return 0;
 }
 
-auto main(int argc, char **argv) -> int32_t {
+auto main(int32_t argc, char **argv) -> int32_t {
   void *stack{nullptr};
   std::fstream f1, f2, f3;
   pid_t pid{};
@@ -262,33 +263,32 @@ auto main(int argc, char **argv) -> int32_t {
   for(auto& entry : std::filesystem::recursive_directory_iterator(path))
     virtual_dev_names.push_back(entry.path());
 
-  if(argc > 1) {
-    if(std::stoi(argv[1]) == 1) {
-        stack = mmap(NULL, PAGESIZE*4, PROT_READ|PROT_WRITE, MAP_ANON|MAP_PRIVATE, -1, 0);
-        if(stack == (void *)-1) error("mmap");
-        pid = clone(spawn_threads, stack+PAGESIZE*4, CLONE_NEWUSER|SIGCHLD, NULL);
-        if(pid == -1) error("clone");
+  parse_args args(argc, argv);
 
-        f1.open("/proc/" + std::to_string(pid) + "/setgroups");
-        f2.open("/proc/" + std::to_string(pid) + "/uid_map");
-        f3.open("/proc/" + std::to_string(pid) + "/gid_map");
+  if(args.check_opt_exist("userns")) {
+      stack = mmap(NULL, PAGESIZE*4, PROT_READ|PROT_WRITE, MAP_ANON|MAP_PRIVATE, -1, 0);
+      if(stack == (void *)-1) error("mmap");
+      pid = clone(spawn_threads, stack+PAGESIZE*4, CLONE_NEWUSER|SIGCHLD, NULL);
+      if(pid == -1) error("clone");
 
-        f1.write("deny", 4);
-        f2.write("0 1000 1", 8);
-        f3.write("0 1000 1", 8);
+      f1.open("/proc/" + std::to_string(pid) + "/setgroups");
+      f2.open("/proc/" + std::to_string(pid) + "/uid_map");
+      f3.open("/proc/" + std::to_string(pid) + "/gid_map");
 
-        f1.close();
-        f2.close();
-        f3.close();
+      f1.write("deny", 4);
+      f2.write("0 1000 1", 8);
+      f3.write("0 1000 1", 8);
 
-        std::string x;
-        std::cin >> x;
+      f1.close();
+      f2.close();
+      f3.close();
 
-        goto out;
-    }
+      std::string x;
+      std::cin >> x;
+
+      goto out;
   }
-
-
+  
   spawn_threads(NULL);
 
 out:

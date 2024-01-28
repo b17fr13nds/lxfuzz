@@ -35,9 +35,15 @@ you're completely free in choosing how the kernel should be running. however mak
 
 if everything is set up you can start the fuzzing manager
 ```
-./fuzz_manager <no of instances> <fuzzer options...>
+./fuzz_manager -n <instances> [--timeout <inactive log timeout>] [--daemon] [--userns]
 ```
-you can choose as many instances as your hardware can take. as of now, you can specify `1` for fuzzer options if you want to make use of user namespaces.
+###### required arguments:
+with `-n`, you can choose as many instances as your hardware can take.
+
+###### optional arguments:
+`--timeout` specifies in seconds, how long no log activity should be ignored, until the `fuzz_manager` checks for hangs or crashes.
+use `--daemon` to run the fuzzer as a daemon in the background.
+`--userns` tell the fuzzer to make use of user namespaces.
 
 ## logs and crashes
 
