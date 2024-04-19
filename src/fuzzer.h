@@ -231,27 +231,27 @@ public:
 };
 
 #define SETVAL(x, y) {\
-  deref(x, &offsets)[perstruct_cnt.back()] = y.at(i);\
-  perstruct_cnt.back()++;\
+  deref(x, offsets)[perstruct_cnt->back()] = y.at(i);\
+  perstruct_cnt->back()++;\
 }
 
 #define REALLOC_STRUCT(x) {\
   {\
-    size_t tmp{offsets.back()};\
-    offsets.pop_back();\
-    size.back() += 8;\
-    deref(x, &offsets)[perstruct_cnt.at(perstruct_cnt.size()-2)-1] = reinterpret_cast<uint64_t>(realloc(reinterpret_cast<void*>(deref(x, &offsets)[perstruct_cnt.at(perstruct_cnt.size()-2)-1]),size.back()));\
-    offsets.push_back(tmp);\
+    size_t tmp{offsets->back()};\
+    offsets->pop_back();\
+    size->back() += 8;\
+    deref(x, offsets)[perstruct_cnt->at(perstruct_cnt->size()-2)-1] = reinterpret_cast<uint64_t>(malloc(size->back()));\
+    offsets->push_back(tmp);\
   }\
 }
 
 #define ALLOC_STRUCT(x) {\
   {\
-    deref(x, &offsets)[perstruct_cnt.back()] = reinterpret_cast<uint64_t>(malloc(8));\
-    offsets.push_back(perstruct_cnt.back());\
-    perstruct_cnt.back()++;\
-    perstruct_cnt.push_back(0);\
-    size.push_back(8);\
+    deref(x, offsets)[perstruct_cnt->back()] = reinterpret_cast<uint64_t>(malloc(8));\
+    offsets->push_back(perstruct_cnt->back());\
+    perstruct_cnt->back()++;\
+    perstruct_cnt->push_back(0);\
+    size->push_back(8);\
   }\
 }
 
@@ -349,11 +349,11 @@ template <typename T>
 inline auto parse_data(T *op) -> uint64_t * {
   uint64_t *args = new uint64_t[op->size+2];
 
-  std::vector<size_t> size;
-  std::vector<size_t> offsets;
-  std::vector<size_t> perstruct_cnt;
+  std::vector<size_t> *size = new std::vector<size_t>;
+  std::vector<size_t> *offsets = new std::vector<size_t>;
+  std::vector<size_t> *perstruct_cnt = new std::vector<size_t>;
 
-  perstruct_cnt.push_back(0);
+  perstruct_cnt->push_back(0);
 
   for(uint64_t i{0}; i < op->value.size(); i++) {
     // value not in a structure
@@ -361,10 +361,10 @@ inline auto parse_data(T *op) -> uint64_t * {
 
       if(i && op->sinfo.get_deep(i) < op->sinfo.get_deep(i-1)) {
         for(uint64_t j{0}; j < op->sinfo.get_deep(i-1) - op->sinfo.get_deep(i); j++) {
-          if(!size.size()) break;
-          size.pop_back();
-          offsets.pop_back();
-          perstruct_cnt.pop_back();
+          if(!size->size()) break;
+          size->pop_back();
+          offsets->pop_back();
+          perstruct_cnt->pop_back();
         }
       }
       SETVAL(args, op->value);
@@ -390,10 +390,10 @@ inline auto parse_data(T *op) -> uint64_t * {
     } else if(i && op->sinfo.get_deep(i) < op->sinfo.get_deep(i-1)) {
 
       for(uint64_t j{0}; j < op->sinfo.get_deep(i-1) - op->sinfo.get_deep(i); j++) {
-        if(size.size() == 1) break;
-        size.pop_back();
-        offsets.pop_back();
-        perstruct_cnt.pop_back();
+        if(size->size() == 1) break;
+        size->pop_back();
+        offsets->pop_back();
+        perstruct_cnt->pop_back();
       }
 
       // value in same structure than values before i-1

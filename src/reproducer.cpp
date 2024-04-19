@@ -97,7 +97,8 @@ auto parse_sysdevproc(std::ifstream &f) -> prog_t* {
       PARSE_VALUES(sdpop, ',');
 
       readuntil(f, " ");
-      sdpop->size = std::stoi(readuntil(f, ")"));
+      tmp = readuntil(f, ")");
+      sdpop->size = std::stoi(tmp) / 8;
     } else {
       sdpop->option = 2;
 
@@ -106,7 +107,7 @@ auto parse_sysdevproc(std::ifstream &f) -> prog_t* {
 
       readuntil(f, " ");
       tmp = readuntil(f, ")");
-      sdpop->size = std::stoi(tmp);
+      sdpop->size = std::stoi(tmp) / 8;
     }
 
     getline(f, tmp, '\n');
@@ -144,7 +145,7 @@ auto parse_socket(std::ifstream &f) -> prog_t* {
       PARSE_VALUES(sop, ',');
 
       readuntil(f, " ");
-      sop->size = std::stoi(readuntil(f, ")"));
+      sop->size = std::stoi(readuntil(f, ")")) / 8;
     } else if(tmp == "write(") {
       sop->option = 1;
 
@@ -152,7 +153,7 @@ auto parse_socket(std::ifstream &f) -> prog_t* {
       PARSE_VALUES(sop, ',');
 
       readuntil(f, " ");
-      sop->size = std::stoi(readuntil(f, ")"));
+      sop->size = std::stoi(readuntil(f, ")")) / 8;
 
     } else if(tmp == "sendmsg(") {
       sop->option = 2;
@@ -161,7 +162,7 @@ auto parse_socket(std::ifstream &f) -> prog_t* {
       PARSE_VALUES(sop, ',');
 
       readuntil(f, " .iov.len = ");
-      sop->size = std::stoi(readuntil(f, ")"));
+      sop->size = std::stoi(readuntil(f, ")")) / 8;
 
     } else {
       sop->option = 3;
@@ -196,7 +197,6 @@ auto parse_next(std::ifstream &f) -> prog_t * {
   return ret;
 }
 
-
 auto execute_program(prog_t *program) -> pid_t {
   auto pid{fork()};
 
@@ -228,10 +228,8 @@ auto execute_program(prog_t *program) -> pid_t {
 
 auto start(uint32_t core) -> void {
   prog_t *program{nullptr};
-  std::string tmp;
   std::ifstream f;
 
-retry:
   f.open("log_t" + std::to_string(core));
 
   while(!f.eof()) {
@@ -242,22 +240,27 @@ retry:
   }
 
   f.close();
-
-  goto retry;
 }
 
 auto spawn_threads(void *unused) -> int32_t {
   auto cores_available = std::thread::hardware_concurrency();
-  std::thread *t = new std::thread[cores_available];
-
   std::filesystem::current_path("./crash");
+
+restart:
+  std::cout << "new run" << std::endl;
+  std::thread *t = new std::thread[cores_available];
 
   for(decltype(cores_available) i{0}; i < cores_available; i++) {
       t[i] = std::thread(start, i);
   }
 
-  std::string x;
-  std::cin >> x;
+  for(decltype(cores_available) i{0}; i < cores_available; i++) {
+      t[i].join();
+  }
+
+  delete[] t;
+
+  goto restart;
 
   return 0;
 }

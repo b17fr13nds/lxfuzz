@@ -19,14 +19,14 @@ auto execute_socketop(prog_t* program) -> void {
 
     switch(sop->option) {
       case 0:
-      setsockopt(program->fd, SOL_SOCKET, sop->optname, args.at(i), sop->size);
+      setsockopt(program->fd, SOL_SOCKET, sop->optname, args.at(i), sop->size*8);
       break;
       case 1:
-      write(program->fd, args.at(i), sop->size);
+      write(program->fd, args.at(i), sop->size*8);
       break;
       case 2:
       iov[0].iov_base = args.at(i);
-      iov[0].iov_len = sop->size;
+      iov[0].iov_len = sop->size*8;
       message.msg_iov = iov;
       message.msg_iovlen = 1;
       sendmsg(program->fd, &message, 0);

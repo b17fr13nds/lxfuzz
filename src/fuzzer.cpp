@@ -23,7 +23,7 @@ auto get_random(uint64_t min, uint64_t max) -> uint64_t {
 
   if(max == 0xffffffffffffffff && get_random(0,1)) {
     min = 0x0;
-    max = 0x1000;
+    max = 0x20;
   }
 
   std::uniform_int_distribution<std::mt19937_64::result_type> dist6(min,max);
@@ -41,7 +41,7 @@ auto flog_program(prog_t *p, int32_t core) -> void {
       log += "syscall(" + std::to_string(p->op.sysc->at(i)->sysno);
       if(p->op.sysc->at(i)->size) log += ", ";
       for(uint64_t j{0}; j < p->get_value(i)->size(); j++) {
-        log +=  "[v:" + std::to_string(p->get_value(i)->at(j)) + "|d:" + std::to_string(p->get_sinfo(i)->get_deep(j)) + "|n:" + std::to_string(p->get_sinfo(i)->get_last(j)) + "]";
+        log += "[v:" + std::to_string(p->get_value(i)->at(j)) + "|d:" + std::to_string(p->get_sinfo(i)->get_deep(j)) + "|n:" + std::to_string(p->get_sinfo(i)->get_last(j)) + "]";
         if(j+1 < p->get_value(i)->size()) {
           if(p->op.sysc->at(i)->nargno.at(j+1) > p->op.sysc->at(i)->nargno.at(j)) log += ", ";
         }
@@ -69,12 +69,12 @@ auto flog_program(prog_t *p, int32_t core) -> void {
         break;
       }
       for(uint64_t j{0}; j < p->get_value(i)->size(); j++) {
-        log +=  "[v:" + std::to_string(p->get_value(i)->at(j)) + "|d:" + std::to_string(p->get_sinfo(i)->get_deep(j)) + "|n:" + std::to_string(p->get_sinfo(i)->get_last(j)) + "]";
+        log += "[v:" + std::to_string(p->get_value(i)->at(j)) + "|d:" + std::to_string(p->get_sinfo(i)->get_deep(j)) + "|n:" + std::to_string(p->get_sinfo(i)->get_last(j)) + "]";
       }
       switch(p->op.sdp->at(i)->option) {
         case 1: [[fallthrough]];
         case 2:
-        log += ", " + std::to_string(p->op.sdp->at(i)->size);
+        log += ", " + std::to_string(p->op.sdp->at(i)->size*8);
         break;
       }
       log += ");";
@@ -103,15 +103,15 @@ auto flog_program(prog_t *p, int32_t core) -> void {
         break;
       }
       for(uint64_t j{0}; j < p->get_value(i)->size(); j++) {
-        log +=  "[v:" + std::to_string(p->get_value(i)->at(j)) + "|d:" + std::to_string(p->get_sinfo(i)->get_deep(j)) + "|n:" + std::to_string(p->get_sinfo(i)->get_last(j)) + "]";
+        log += "[v:" + std::to_string(p->get_value(i)->at(j)) + "|d:" + std::to_string(p->get_sinfo(i)->get_deep(j)) + "|n:" + std::to_string(p->get_sinfo(i)->get_last(j)) + "]";
       }
       switch(p->op.sock->at(i)->option) {
         case 2:
-        log += ", .iov.len = " + std::to_string(p->op.sock->at(i)->size) + "}, 0);";
+        log += ", .iov.len = " + std::to_string(p->op.sock->at(i)->size*8) + "}, 0);";
         break;
         case 0: [[fallthrough]];
         case 1:
-        log += ", " + std::to_string(p->op.sock->at(i)->size);
+        log += ", " + std::to_string(p->op.sock->at(i)->size*8);
         default:
         log += ");";
         break;
@@ -200,8 +200,8 @@ auto start(int32_t core, fuzzinfo_t fi) -> void {
 
       fi.record_coverage(core);
       waitpid(execute_program(program), NULL, 0);
-      fstats(fi.get_corpus_count());
       ncovered = fi.stop_recording(core);
+      fstats(fi.get_corpus_count());
 
       prev_ncovered = ncovered;
       prev_addr_covered = fi.get_address(core, ncovered);

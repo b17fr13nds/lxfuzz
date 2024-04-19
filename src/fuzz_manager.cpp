@@ -12,6 +12,7 @@
 #include <sys/wait.h>
 #include "fuzz_manager.h"
 #include "parse_args.h"
+#include "config.h"
 
 std::vector<instance_t*> instances;
 
@@ -99,7 +100,7 @@ auto start_instance(int32_t instance_no, std::string fuzzer_args) -> void {
     char c{};
     do {
       if(read(output_pipefd[0], &c, 1) == -1) error("read");
-    } while(c != '$');
+    } while(c != SHELL_PROMPT);
 
     std::string cmd{"./fuzzer " + fuzzer_args + "\n\r"};
 
@@ -181,6 +182,9 @@ auto watch_instance(uint32_t instance_no, std::string fuzzer_args) -> void {
 
   start_instance(instance_no, fuzzer_args);
 
+  display->write_screen(6, 2, std::string("instances: up") + std::string(9, ' '));
+  display->write_screen(59, 2, std::string("fuzzer: running "));
+
   stats_t tmp{0};
 
   while(1) {
@@ -194,16 +198,14 @@ retry:
 
         save_crash(instance_no);
 
-        for (const auto& e : std::filesystem::directory_iterator("./kernel/data/instance" + std::to_string(instance_no)))
-          std::filesystem::remove_all(e.path());
+        crashes++;
+        instances.at(instance_no)->crashes++;
+        display->write_screen(8, 9, std::string("crashes: ") + std::to_string(crashes));
 
         start_instance(instance_no, fuzzer_args);
 
-        crashes++;
-        instances.at(instance_no)->crashes++;
-
         display->write_screen(44, 8, std::string("instance ") + std::to_string(instance_no) + std::string(" brought back up!"));
-        display->write_screen(6, 2, std::string("instances: up"));
+        display->write_screen(6, 2, std::string("instances: up") + std::string(9, ' '));
       } else if(!check_if_log_activity(instance_no)) {
         display->write_screen(44, 8, std::string("instance ") + std::to_string(instance_no) + std::string(" hangs!") + std::string(10, ' '));
         display->write_screen(6, 2, std::string("instances: up (1 down)") + std::string(9, ' '));
@@ -281,9 +283,6 @@ auto main(int32_t argc, char **argv) -> int32_t {
   for(auto i{0}; i < ninstances; i++) {
     t[i] = std::thread(watch_instance, i, fuzzer_args);
   }
-
-  display->write_screen(6, 2, std::string("instances: up") + std::string(9, ' '));
-  display->write_screen(59, 2, std::string("fuzzer: running "));
 
   while(1) {
     total_stats.execs_per_sec = 0;
