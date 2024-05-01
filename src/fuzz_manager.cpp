@@ -89,21 +89,20 @@ auto start_instance(int32_t instance_no, std::string fuzzer_args) -> void {
     exit(0);
     default:
     instances.at(instance_no)->pid = pid;
+    instances.at(instance_no)->read_fd = output_pipefd[0];
+    instances.at(instance_no)->write_fd = input_pipefd[1];
 
     close(input_pipefd[0]);
     close(output_pipefd[1]);
 
     char c{};
     do {
-      if(read(output_pipefd[0], &c, 1) == -1) error("read");
+      if(read(instances.at(instance_no)->read_fd, &c, 1) == -1) error("read");
     } while(c != '$');
 
     std::string cmd{"./fuzzer " + fuzzer_args + "\n\r"};
 
-    if(write(input_pipefd[1], cmd.c_str(), cmd.size()) == -1) error("write");
-
-    close(input_pipefd[1]);
-    close(output_pipefd[0]);
+    if(write(instances.at(instance_no)->write_fd, cmd.c_str(), cmd.size()) == -1) error("write");
   }
 
   return;
@@ -118,11 +117,6 @@ auto stop_instance(int32_t instance_no) -> void {
   instances.at(instance_no)->pid = 0;
 
   return;
-}
-
-auto check_if_alive(int32_t instance_no) -> bool {
-  if(!waitpid(instances.at(instance_no)->pid, NULL, WNOHANG)) return true;
-  return false;
 }
 
 auto check_if_log_activity(int32_t idx) -> bool {
@@ -184,24 +178,34 @@ auto watch_instance(uint32_t instance_no, std::string fuzzer_args) -> void {
     auto ref = sc.now(); 
 
 retry:
+    char c{};
+
+    switch(read(instances.at(instance_no)->read_fd, &c, 1)) {
+      case -1: [[fallthrough]]; // crash
+      write_screen(44, 8, std::string("instance ") + std::to_string(instance_no) + std::string(" crashed!        "));
+      write_screen(6, 2, std::string("instances: up (1 down)"));
+
+      save_crash(instance_no);
+
+      for (const auto& e : std::filesystem::directory_iterator("./kernel/data/instance" + std::to_string(instance_no)))
+        std::filesystem::remove_all(e.path());
+
+      start_instance(instance_no, fuzzer_args);
+
+      crashes++;
+      instances.at(instance_no)->crashes++;
+
+      write_screen(44, 8, std::string("instance ") + std::to_string(instance_no) + std::string(" brought back up!"));
+      write_screen(6, 2, std::string("instances: up         "));
+      case 0:
+      break;
+      default;
+      instances.at(instance_no)->output.add(c);
+      break;
+    }
+
     if(static_cast<std::chrono::duration<double>>(sc.now() - ref).count() > 120.0) {
-      if(!check_if_alive(instance_no)) {
-        write_screen(44, 8, std::string("instance ") + std::to_string(instance_no) + std::string(" crashed!        "));
-        write_screen(6, 2, std::string("instances: up (1 down)"));
-
-        save_crash(instance_no);
-
-        for (const auto& e : std::filesystem::directory_iterator("./kernel/data/instance" + std::to_string(instance_no)))
-          std::filesystem::remove_all(e.path());
-
-        start_instance(instance_no, fuzzer_args);
-
-        crashes++;
-        instances.at(instance_no)->crashes++;
-
-        write_screen(44, 8, std::string("instance ") + std::to_string(instance_no) + std::string(" brought back up!"));
-        write_screen(6, 2, std::string("instances: up         "));
-      } else if(!check_if_log_activity(instance_no)) {
+      if(!check_if_log_activity(instance_no)) {
         write_screen(44, 8, std::string("instance ") + std::to_string(instance_no) + std::string(" hangs!          "));
         write_screen(6, 2, std::string("instances: up (1 down)"));
 

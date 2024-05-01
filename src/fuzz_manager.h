@@ -1,4 +1,5 @@
 #include <mutex>
+#include <queue>
 #include <curses.h>
 
 inline auto rectangle(int x1, int y1, int x2, int y2) -> void {
@@ -34,10 +35,49 @@ typedef struct {
   uint64_t corpus_count;
 } stats_t;
 
+class limited_buf_t {
+  int32_t limit;
+  std:queue<char> *buffer;
+
+public:
+  limited_buf_t(int l) : limit{l} {
+    buffer = new std:queue<char>;
+  }
+
+  ~limited_buf_t() {
+    delete buffer;
+  }
+
+  void clear() {
+    delete buffer;
+    buffer = new std:queue<char>;
+  }
+
+  void add(char e) {
+    if(buffer->size() >= limit)
+      buffer->pop_front()
+
+    buffer->push_back(e);
+  }
+
+  char *to_array() {
+    char *ret = new char[buffer->size()];
+
+    int32_t i{0};
+    for(auto e : *buffer)
+      ret[i++] = e;
+
+    return ret;
+  }
+
+};
+
 typedef struct {
   int32_t pid;
   int32_t crashes;
   uint64_t* logsizes;
+  int32_t read_fd, write_fd;
+  limited_buf_t output;
 } instance_t;
 
 inline auto error(const char *str) -> void {
