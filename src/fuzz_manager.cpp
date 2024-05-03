@@ -11,15 +11,19 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #include "fuzz_manager.h"
+#include "parse_args.h"
+#include "config.h"
 
 std::vector<instance_t*> instances;
 
 stats_t total_stats{0};
-int32_t crashes, instances_ready{0};
+int32_t crashes{0}, instances_ready{0};
+double inactive_timeout{60.0};
 
-auto print_usage_and_exit(char **argv) -> void {
-  endwin();
-  std::cout << argv[0] << ": <instances> <fuzzer options...>" << std::endl;
+fuzzer_display *display;
+
+[[noreturn]] auto print_usage_and_exit(char **argv) -> void {
+  std::cout << argv[0] << ": -n <instances> [--timeout <inactive log timeout>] [--daemon] [--userns]" << std::endl;
   exit(0);
 }
 
@@ -35,7 +39,7 @@ auto parse_cmdline(int32_t instance_no) -> const char ** {
 
   f.open("./cmdline.cfg");
 
-  write_screen(5, 15, std::string("qemu cmdline: "));
+  display->write_screen(5, 15, std::string("qemu cmdline: "));
   int col{5}, line{16};
   while(!f.eof()) {
     getline(f, tmp, '|');
@@ -44,7 +48,7 @@ auto parse_cmdline(int32_t instance_no) -> const char ** {
       line++;
       col = 5;
     }
-    write_screen(col, line, tmp);
+    display->write_screen(col, line, tmp);
     col += tmp.size() + 1;
 
     v->push_back(tmp);
@@ -98,7 +102,7 @@ auto start_instance(int32_t instance_no, std::string fuzzer_args) -> void {
     char c{};
     do {
       if(read(instances.at(instance_no)->read_fd, &c, 1) == -1) error("read");
-    } while(c != '$');
+    } while(c != SHELL_PROMPT);
 
     std::string cmd{"./fuzzer " + fuzzer_args + "\n\r"};
 
@@ -117,6 +121,11 @@ auto stop_instance(int32_t instance_no) -> void {
   instances.at(instance_no)->pid = 0;
 
   return;
+}
+
+auto check_if_alive(int32_t instance_no) -> bool {
+  if(!waitpid(instances.at(instance_no)->pid, NULL, WNOHANG)) return true;
+  return false;
 }
 
 auto check_if_log_activity(int32_t idx) -> bool {
@@ -139,11 +148,10 @@ auto save_crash(int32_t instance_no) -> void {
   std::filesystem::copy("./kernel/data/instance" + std::to_string(instance_no), "./kernel/data/instance" + std::to_string(instance_no) + "_crash" + std::to_string(instances.at(instance_no)->crashes)); 
 }
 
-auto cleanup(int32_t x) -> void {
-  endwin();
+[[noreturn]] auto cleanup(int32_t x) -> void {
+  delete display;
 
   for(uint64_t i{0}; i < instances.size(); i++) {
-    stop_instance(i);
     if(mq_unlink(("/fuzzer" + std::to_string(i)).c_str()) == -1) error("mq_unlink");
   }
 
@@ -163,6 +171,7 @@ auto parse_fuzzer_args(char **start) -> std::string {
 
 auto watch_instance(uint32_t instance_no, std::string fuzzer_args) -> void {
   struct mq_attr attr{0x0,0x1,sizeof(stats_t),0x0};
+  std::ofstream panic_log;
   mqd_t desc{0};
 
   std::chrono::steady_clock sc;
@@ -172,42 +181,51 @@ auto watch_instance(uint32_t instance_no, std::string fuzzer_args) -> void {
 
   start_instance(instance_no, fuzzer_args);
 
+  display->write_screen(6, 2, std::string("instances: up") + std::string(9, ' '));
+  display->write_screen(59, 2, std::string("fuzzer: running "));
+
   stats_t tmp{0};
 
   while(1) {
     auto ref = sc.now(); 
 
 retry:
-    char c{};
+    if(static_cast<std::chrono::duration<double>>(sc.now() - ref).count() > inactive_timeout) {
+      if(!check_if_alive(instance_no)) {
+        char c{};
+        int ret{};
 
-    switch(read(instances.at(instance_no)->read_fd, &c, 1)) {
-      case -1: [[fallthrough]]; // crash
-      write_screen(44, 8, std::string("instance ") + std::to_string(instance_no) + std::string(" crashed!        "));
-      write_screen(6, 2, std::string("instances: up (1 down)"));
+        do {
+          ret = read(instances.at(instance_no)->read_fd, &c, 1);
+          instances.at(instance_no)->output.add(c);
+        } while(ret);
 
-      save_crash(instance_no);
+        display->write_screen(44, 8, std::string("instance ") + std::to_string(instance_no) + std::string(" crashed!") + std::string(8, ' '));
+        display->write_screen(6, 2, std::string("instances: up (1 down)"));
 
-      for (const auto& e : std::filesystem::directory_iterator("./kernel/data/instance" + std::to_string(instance_no)))
-        std::filesystem::remove_all(e.path());
+        panic_log.open("./kernel/data/instance" + std::to_string(instance_no) + "/panic_log");
+        panic_log.write(instances.at(instance_no)->output.to_array(), instances.at(instance_no)->output.size());
+        panic_log.close();
 
-      start_instance(instance_no, fuzzer_args);
+        save_crash(instance_no);
 
-      crashes++;
-      instances.at(instance_no)->crashes++;
+        crashes++;
+        instances.at(instance_no)->crashes++;
+        display->write_screen(8, 9, std::string("crashes: ") + std::to_string(crashes));
 
-      write_screen(44, 8, std::string("instance ") + std::to_string(instance_no) + std::string(" brought back up!"));
-      write_screen(6, 2, std::string("instances: up         "));
-      case 0:
-      break;
-      default;
-      instances.at(instance_no)->output.add(c);
-      break;
-    }
+        std::filesystem::remove("./kernel/data/instance" + std::to_string(instance_no) + "/panic_log");
+        
+        instances.at(instance_no)->output.clear();
+        close(instances.at(instance_no)->read_fd);
+        close(instances.at(instance_no)->write_fd);
 
-    if(static_cast<std::chrono::duration<double>>(sc.now() - ref).count() > 120.0) {
-      if(!check_if_log_activity(instance_no)) {
-        write_screen(44, 8, std::string("instance ") + std::to_string(instance_no) + std::string(" hangs!          "));
-        write_screen(6, 2, std::string("instances: up (1 down)"));
+        start_instance(instance_no, fuzzer_args);
+
+        display->write_screen(44, 8, std::string("instance ") + std::to_string(instance_no) + std::string(" brought back up!"));
+        display->write_screen(6, 2, std::string("instances: up") + std::string(9, ' '));
+      } else if(!check_if_log_activity(instance_no)) {
+        display->write_screen(44, 8, std::string("instance ") + std::to_string(instance_no) + std::string(" hangs!") + std::string(10, ' '));
+        display->write_screen(6, 2, std::string("instances: up (1 down)") + std::string(9, ' '));
 
         stop_instance(instance_no);
 
@@ -219,8 +237,8 @@ retry:
 
         start_instance(instance_no, fuzzer_args);
 
-        write_screen(44, 8, std::string("instance ") + std::to_string(instance_no) + std::string(" brought back up!"));
-        write_screen(6, 2, std::string("instances: up         "));
+        display->write_screen(44, 8, std::string("instance ") + std::to_string(instance_no) + std::string(" brought back up!"));
+        display->write_screen(6, 2, std::string("instances: up") + std::string(9, ' '));
       }
     } else {
       if(mq_receive(desc, (char *)&tmp, sizeof(stats_t), 0) == -1) {
@@ -239,19 +257,33 @@ auto main(int32_t argc, char **argv) -> int32_t {
   auto ninstances{0};
   std::string fuzzer_args{};
 
-  initscr();
-  write_screen(26, 0, std::string("lxfuzz kernel fuzzer (v0.0.1)"));
-  write_screen(6, 2, std::string("instances: down"));
-  write_screen(59, 2, std::string("fuzzer: starting"));
-  write_screen(5, 4, std::string("stats"));
-  write_screen(41, 4, std::string("message log"));
+  parse_args args(argc, argv);
 
-  if(argc < 2) print_usage_and_exit(argv);
+  if(!args.check_opt_exist("n")) print_usage_and_exit(argv);
   
-  fuzzer_args = parse_fuzzer_args(&argv[2]);
-  ninstances = std::stoi(argv[1]);
+  fuzzer_args = parse_fuzzer_args(&argv[1]);
+  ninstances = std::stoi(args.get_opt("n"));
+
+  if(!ninstances) return 0;
+
+  if(args.check_opt_exist("timeout"))
+    inactive_timeout = std::stoi(args.get_opt("timeout"));
+
+  if(args.check_opt_exist("daemon")) {
+    daemonize();
+    display = new daemon_no_display;
+  } else {
+    display = new fuzzer_display;
+  }
+
+  display->write_screen(26, 0, std::string("lxfuzz kernel fuzzer (v0.0.1)"));
+  display->write_screen(6, 2, std::string("instances: down"));
+  display->write_screen(59, 2, std::string("fuzzer: starting"));
+  display->write_screen(5, 4, std::string("stats"));
+  display->write_screen(41, 4, std::string("message log"));
 
   signal(SIGINT, cleanup);
+  signal(SIGKILL, cleanup);
 
   for(auto i{0}; i < ninstances; i++) {
     std::filesystem::create_directory("./kernel/data/instance" + std::to_string(i));
@@ -269,9 +301,6 @@ auto main(int32_t argc, char **argv) -> int32_t {
     t[i] = std::thread(watch_instance, i, fuzzer_args);
   }
 
-  write_screen(6, 2, std::string("instances: up         "));
-  write_screen(59, 2, std::string("fuzzer: running "));
-
   while(1) {
     total_stats.execs_per_sec = 0;
 
@@ -280,9 +309,9 @@ auto main(int32_t argc, char **argv) -> int32_t {
 
     total_stats.execs_per_sec /= ninstances;    
 
-    write_screen(8, 7, std::string("total execs: ") + std::to_string(total_stats.total_execs));
-    write_screen(8, 8, std::string("execs per second: ") + std::to_string(total_stats.execs_per_sec));
-    write_screen(8, 9, std::string("crashes: ") + std::to_string(crashes));
+    display->write_screen(8, 7, std::string("total execs: ") + std::to_string(total_stats.total_execs));
+    display->write_screen(8, 8, std::string("execs per second: ") + std::to_string(total_stats.execs_per_sec));
+    display->write_screen(8, 9, std::string("crashes: ") + std::to_string(crashes));
 
     uint64_t total_logsize{0};
     for(auto i{0}; i < ninstances; i++) {
@@ -292,8 +321,8 @@ auto main(int32_t argc, char **argv) -> int32_t {
       }
     }
 
-    write_screen(5, 12, std::string("number of instances: ") + std::to_string(ninstances));
-    write_screen(5, 13, std::string("total log size: ") + std::to_string(total_logsize) + std::string(" bytes"));
+    display->write_screen(5, 12, std::string("number of instances: ") + std::to_string(ninstances));
+    display->write_screen(5, 13, std::string("total log size: ") + std::to_string(total_logsize) + std::string(" bytes") + std::string(5, ' '));
   }
 
   return 0;
