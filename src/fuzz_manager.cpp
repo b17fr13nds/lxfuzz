@@ -123,11 +123,6 @@ auto stop_instance(int32_t instance_no) -> void {
   return;
 }
 
-auto check_if_alive(int32_t instance_no) -> bool {
-  if(!waitpid(instances.at(instance_no)->pid, NULL, WNOHANG)) return true;
-  return false;
-}
-
 auto check_if_log_activity(int32_t idx) -> bool {
   size_t filesz;
 
