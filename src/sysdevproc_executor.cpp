@@ -3,12 +3,14 @@
 #include <unistd.h>
 #include "fuzzer.h"
 
-auto execute_sysdevprocop(prog_t* program) -> void {
-  std::vector<uint64_t*> args;
+[[noreturn]] auto execute_sysdevprocop(prog_t *program, kcov_t *kcov) -> void {
+  static std::vector<uint64_t*> args;
   sysdevproc_op_t *sdpop{nullptr};
 
   for(uint32_t i{0}; i < program->nops; i++)
     args.push_back(parse_data<sysdevproc_op_t>(program->op.sdp->at(i)));
+  
+  kcov->record();
 
   for(uint32_t i{0}; i < program->nops; i++) {
     sdpop = program->op.sdp->at(i);
@@ -19,13 +21,15 @@ auto execute_sysdevprocop(prog_t* program) -> void {
       break;
       case 1:
       break;
-      read(program->fd, args.at(i), sdpop->size);
+      read(program->fd, args.at(i), sdpop->size*8);
       break;
       case 2:
-      write(program->fd, args.at(i), sdpop->size);
+      write(program->fd, args.at(i), sdpop->size*8);
       break;
     }
   }
 
-  return;
+  kcov->stop();
+
+  _exit(0);
 }

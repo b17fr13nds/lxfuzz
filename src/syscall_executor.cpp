@@ -14,12 +14,14 @@ auto exec_syscall(uint16_t nr) -> void {
   return;
 }
 
-auto execute_syscallop(prog_t* program) -> void {
-  std::vector<uint64_t*> args;
+[[noreturn]] auto execute_syscallop(prog_t *program, kcov_t *kcov) -> void {
+  static std::vector<uint64_t*> args;
   syscall_op_t *sysc{nullptr};
 
   for(uint32_t i{0}; i < program->nops; i++)
     args.push_back(parse_data<syscall_op_t>(program->op.sysc->at(i)));
+
+  kcov->record();
 
   for(uint32_t i{0}; i < program->nops; i++) {
     sysc = program->op.sysc->at(i);
@@ -49,5 +51,7 @@ auto execute_syscallop(prog_t* program) -> void {
     }
   }
 
-  return;
+  kcov->stop();
+
+  _exit(0);
 }
