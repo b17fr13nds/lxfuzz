@@ -185,6 +185,8 @@ auto watch_instance(uint32_t instance_no, std::string fuzzer_args) -> void {
   display->write_screen(59, 2, std::string("fuzzer: running "));
 
   stats_t tmp{0};
+  char c{};
+  int ret{};
 
   while(1) {
     auto ref = sc.now(); 
@@ -192,13 +194,11 @@ auto watch_instance(uint32_t instance_no, std::string fuzzer_args) -> void {
 retry:
     if(static_cast<std::chrono::duration<double>>(sc.now() - ref).count() > inactive_timeout) {
       if(!check_if_alive(instance_no)) {
-        char c{};
-        int ret{};
-
         do {
           ret = read(instances.at(instance_no)->read_fd, &c, 1);
-          instances.at(instance_no)->output.add(c);
-        } while(ret);
+          if(ret == 1)
+            instances.at(instance_no)->output.add(c);
+        } while(ret == 1);
 
         display->write_screen(44, 8, std::string("instance ") + std::to_string(instance_no) + std::string(" crashed!") + std::string(8, ' '));
         display->write_screen(6, 2, std::string("instances: up (1 down)"));

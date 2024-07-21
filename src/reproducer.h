@@ -44,12 +44,24 @@
     } while(static_cast<char>(f.peek()) != stop);\
 }
 
+class kcov_dummy_t : public kcov_t {
+  virtual auto record() -> void final {
+    return;
+  }
+
+  virtual auto stop() -> void final {
+    return;
+  }
+};
+
 auto readuntil(std::ifstream&, std::string) -> std::string;
 auto readuntil(std::ifstream&, std::string, std::string) -> std::string;
+
 auto parse_syscall(std::ifstream&) -> prog_t*;
 auto parse_socket(std::ifstream&) -> prog_t*;
 auto parse_sysdevproc(std::ifstream&) -> prog_t*;
+
 auto parse_next(std::ifstream&) -> prog_t*;
-auto execute_program(prog_t*) -> pid_t;
-auto start(uint32_t) -> void;
-auto main(int, char **) -> int32_t;
+
+auto start(uint32_t, kcov_t*) -> void;
+auto main(int, char**) -> int32_t;

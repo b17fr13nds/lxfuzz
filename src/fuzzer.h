@@ -1,6 +1,10 @@
+#include <mutex>
 #include <vector>
-#include <variant>
+#include <format>
+#include <fstream>
+#include <sstream>
 #include <cstdint>
+#include <cstring>
 #include <fcntl.h>
 #include <unistd.h>
 #include <sys/mman.h>
@@ -16,6 +20,11 @@
 #define KCOV_TRACE_CMP 1
 
 #define PAGESIZE 0x1000
+
+#define PAUSE() {\
+  std::string x;\
+  std::cin >> x;\
+}
 
 inline auto error(const char *str) -> void {
   perror(str);
@@ -173,47 +182,79 @@ public:
   int32_t type;
 };
 
-typedef struct {
-  int32_t kcov_fd;
-  uint64_t *addr_covered, ncovered;
-} kcov_data_t;
+class kcov_t {
+  int32_t fd;
+  uint64_t *cover;
 
-class fuzzinfo_t {
-  std::vector<prog_t*> corpus;
-  kcov_data_t **kcov;
+  std::fstream out;
+
+  std::mutex m;
+
 public:
-  fuzzinfo_t(int32_t n) : kcov{nullptr} {
-    kcov = new kcov_data_t*[n];
+  kcov_t() {
+    out.open("/coverage/kcov.txt", std::ios_base::in|std::ios_base::out|std::ios_base::trunc);
 
-    for(auto i{0}; i < n; i++) {
-      kcov[i] = new kcov_data_t;
-      kcov[i]->kcov_fd = open("/sys/kernel/debug/kcov", O_RDWR);
-      if(ioctl(kcov[i]->kcov_fd, KCOV_INIT_TRACE, COVER_SIZE) == -1) error("ioctl");
-      kcov[i]->addr_covered = (uint64_t*)mmap(NULL, COVER_SIZE*sizeof(uint64_t), PROT_READ|PROT_WRITE, MAP_SHARED, kcov[i]->kcov_fd, 0);
+    fd = open("/sys/kernel/debug/kcov", O_RDWR);
+    if(fd < 0) error("open");
+
+    auto ret = ioctl(fd, KCOV_INIT_TRACE, COVER_SIZE);
+    if(ret < 0) error("ioctl");
+
+    auto buf = (uint64_t*)mmap(NULL, COVER_SIZE*sizeof(uint64_t), PROT_READ|PROT_WRITE, MAP_SHARED, fd, 0);
+    if((void *)buf == MAP_FAILED) error("mmap");
+
+    cover = buf;
+  }
+
+  virtual auto record() -> void {
+    if(ioctl(fd, KCOV_ENABLE, KCOV_TRACE_PC) == -1) error("ioctl");
+
+    __atomic_store_n(&cover[0], 0, __ATOMIC_RELAXED);
+  }
+
+  virtual auto stop() -> void {
+    if(ioctl(fd, KCOV_DISABLE, 0) == -1) error("ioctl");
+  }
+
+  virtual auto save() -> uint64_t {
+    std::lock_guard<std::mutex> lock(m, std::adopt_lock);
+
+    uint64_t size_diff{0}, n{__atomic_load_n(&cover[0], __ATOMIC_RELAXED)};
+
+    std::stringstream content{""};
+    out.seekg(0, std::ios::beg);
+
+    auto fb = out.rdbuf();
+    if(fb->in_avail())
+      content << fb;
+
+    out.seekg(0, std::ios::end);
+
+    for(uint64_t i{0}; i < n; i++) {
+      std::string address = std::format("0x{:x}", cover[i + 1] - 5);
+
+      if(content.str().find(address) == std::string::npos) {
+        content << address << "\n";
+        out << address << "\n";
+
+        size_diff += 8;
+      }
     }
+
+    memset(cover, 0, COVER_SIZE*sizeof(uint64_t));
+
+    return size_diff;
   }
+};
 
-  virtual void record_coverage(int32_t thread) {
-    if(ioctl(kcov[thread]->kcov_fd, KCOV_ENABLE, KCOV_TRACE_PC) == -1) error("ioctl");
-    __atomic_store_n(&kcov[thread]->addr_covered[0], 0, __ATOMIC_RELAXED);
-  }
-
-  virtual uint64_t stop_recording(int32_t thread) {
-    kcov[thread]->ncovered = __atomic_load_n(&kcov[thread]->addr_covered[0], __ATOMIC_RELAXED);
-    if(ioctl(kcov[thread]->kcov_fd, KCOV_DISABLE, 0) == -1) error("ioctl");
-
-    return kcov[thread]->ncovered;
-  }
-
-  virtual uint64_t get_address(int32_t thread, uint64_t idx) {
-    return kcov[thread]->addr_covered[idx];
-  }
-
-  virtual void add_corpus(prog_t *p) {
+class corpus_t {
+  std::vector<prog_t*> corpus;
+public:
+  virtual void add(prog_t *p) {
     corpus.push_back(p);
   }
 
-  virtual prog_t *get_corpus() {
+  virtual auto get() -> prog_t* {
     prog_t *tmp;
 
     if(!corpus.size()) {
@@ -225,7 +266,7 @@ public:
     return tmp;
   }
 
-  virtual uint64_t get_corpus_count() {
+  virtual auto get_count() -> uint64_t {
     return corpus.size();
   }
 };
@@ -239,7 +280,7 @@ public:
   {\
     size_t tmp{offsets->back()};\
     offsets->pop_back();\
-    size->back() += 8;\
+    size->back() += 0x10;\
     deref(x, offsets)[perstruct_cnt->at(perstruct_cnt->size()-2)-1] = reinterpret_cast<uint64_t>(malloc(size->back()));\
     offsets->push_back(tmp);\
   }\
@@ -347,7 +388,7 @@ inline auto create_data(T *op, int32_t qwords) -> void {
 
 template <typename T>
 inline auto parse_data(T *op) -> uint64_t * {
-  uint64_t *args = new uint64_t[op->size+2];
+  static uint64_t args[10];
 
   std::vector<size_t> *size = new std::vector<size_t>;
   std::vector<size_t> *offsets = new std::vector<size_t>;
@@ -429,25 +470,27 @@ inline auto parse_data(T *op) -> uint64_t * {
 
 extern std::vector<std::string> virtual_dev_names;
 
-auto flog_program(prog_t *, int32_t) -> void;
-auto execute_program(prog_t*) -> pid_t;
-auto print_program(prog_t *) -> void;
+auto flog_program(prog_t*, int32_t) -> void;
+auto execute_program(prog_t*, kcov_t*) -> pid_t;
+auto print_program(prog_t*) -> void;
 
-auto mutate_prog(prog_t *p) -> void;
+auto mutate_prog(prog_t*) -> void;
 
 template <typename... T>
 auto exec_syscall(uint16_t, T...) -> void;
 auto exec_syscall(uint16_t) -> void;
-auto execute_syscallop(prog_t*) -> void;
+[[noreturn]] auto execute_syscallop(prog_t*, kcov_t*) -> void;
 auto create_syscallop() -> syscall_op_t*;
 auto create_program1() -> prog_t*;
 
 auto open_device(prog_t*) -> int32_t;
-auto execute_sysdevprocop(prog_t*) -> void;
+[[noreturn]] auto execute_sysdevprocop(prog_t*, kcov_t*) -> void;
 auto create_sysdevprocop() -> sysdevproc_op_t*;
 auto create_program2() -> prog_t*;
 
 auto open_socket(prog_t*) -> int32_t;
-auto execute_socketop(prog_t*) -> void;
+[[noreturn]] auto execute_socketop(prog_t*, kcov_t*) -> void;
 auto create_socketop() -> socket_op_t*;
 auto create_program3() -> prog_t*;
+
+auto main(int, char**) -> int32_t;

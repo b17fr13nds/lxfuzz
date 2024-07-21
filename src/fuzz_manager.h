@@ -1,5 +1,5 @@
 #include <mutex>
-#include <queue>
+#include <vector>
 #include <cassert>
 #include <curses.h>
 #include "config.h"
@@ -78,11 +78,11 @@ typedef struct {
 
 class limited_buf_t {
   uint64_t limit;
-  std::queue<char> *buffer;
+  std::vector<char> *buffer;
 
 public:
   limited_buf_t() : limit{PANIC_LOG_SIZE} {
-    buffer = new std::queue<char>;
+    buffer = new std::vector<char>;
     assert(buffer->empty());
   }
 
@@ -92,7 +92,7 @@ public:
 
   void clear() {
     delete buffer;
-    buffer = new std::queue<char>;
+    buffer = new std::vector<char>;
     assert(buffer->empty());
   }
 
@@ -104,15 +104,15 @@ public:
     if(buffer->size() >= limit)
       buffer->pop();
 
-    buffer->push(e);
+    buffer->push_back(e);
   }
 
   char *to_array() {
     char *ret = new char[buffer->size()+1];
 
-    for(uint64_t i{0}; i < buffer->size(); i++) {
+    for(uint64_t i{0}, j{buffer->size()}; i < j; i++) {
       ret[i] = buffer->front();
-      buffer->pop();
+      buffer->erase(buffer->begin());
     }
 
     ret[buffer->size()] = 0;

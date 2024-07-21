@@ -4,8 +4,8 @@
 #include <sys/socket.h>
 #include "fuzzer.h"
 
-auto execute_socketop(prog_t* program) -> void {
-  std::vector<uint64_t*> args;
+[[noreturn]] auto execute_socketop(prog_t *program, kcov_t *kcov) -> void {
+  static std::vector<uint64_t*> args;
   socket_op_t *sop{nullptr};
 
   struct iovec iov[1];
@@ -13,6 +13,8 @@ auto execute_socketop(prog_t* program) -> void {
 
   for(uint32_t i{0}; i < program->nops; i++)
     args.push_back(parse_data<socket_op_t>(program->op.sock->at(i)));
+
+  kcov->record();
 
   for(uint32_t i{0}; i < program->nops; i++) {
     sop = program->op.sock->at(i);
@@ -37,5 +39,7 @@ auto execute_socketop(prog_t* program) -> void {
     }
   }
 
-  return;
+  kcov->stop();
+
+  _exit(0);
 }

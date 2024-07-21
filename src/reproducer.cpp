@@ -197,7 +197,7 @@ auto parse_next(std::ifstream &f) -> prog_t * {
   return ret;
 }
 
-auto execute_program(prog_t *program) -> pid_t {
+auto execute_program(prog_t *program, kcov_t *kcov) -> pid_t {
   auto pid{fork()};
 
   switch(pid) {
@@ -207,17 +207,18 @@ auto execute_program(prog_t *program) -> pid_t {
 
     switch(program->inuse) {
       case SYSCALL:
-      execute_syscallop(program);
+      execute_syscallop(program, kcov);
       break;
       case SYSDEVPROC:
-      execute_sysdevprocop(program);
+      execute_sysdevprocop(program, kcov);
       break;
       case SOCKET:
-      execute_socketop(program);
+      execute_socketop(program, kcov);
       break;
     }
 
-    exit(0);
+    // should never be reached
+    _exit(0);
     case -1:
     perror("fork");
     return -1;
@@ -226,7 +227,7 @@ auto execute_program(prog_t *program) -> pid_t {
   }
 }
 
-auto start(uint32_t core) -> void {
+auto start(uint32_t core, kcov_t *kcov) -> void {
   prog_t *program{nullptr};
   std::ifstream f;
 
@@ -235,7 +236,7 @@ auto start(uint32_t core) -> void {
   while(!f.eof()) {
     readuntil(f, "NEW PROGRAM ");
     if((program = parse_next(f)) == NULL) continue;
-    waitpid(execute_program(program), NULL, 0);
+    waitpid(execute_program(program, kcov), NULL, 0);
     delete program;
   }
 
@@ -244,18 +245,19 @@ auto start(uint32_t core) -> void {
 
 auto spawn_threads(void *unused) -> int32_t {
   auto cores_available = std::thread::hardware_concurrency();
+  kcov_dummy_t **kcov = new kcov_dummy_t*[cores_available];
   std::filesystem::current_path("./crash");
 
 restart:
-  std::cout << "new run" << std::endl;
   std::thread *t = new std::thread[cores_available];
 
   for(decltype(cores_available) i{0}; i < cores_available; i++) {
-      t[i] = std::thread(start, i);
+    kcov[i] = new kcov_dummy_t;
+    t[i] = std::thread(start, i, static_cast<kcov_t*>(kcov[i]));
   }
 
   for(decltype(cores_available) i{0}; i < cores_available; i++) {
-      t[i].join();
+    t[i].join();
   }
 
   delete[] t;
@@ -289,8 +291,7 @@ auto main(int argc, char **argv) -> int32_t {
         f2.close();
         f3.close();
 
-        std::string x;
-        std::cin >> x;
+        PAUSE();
 
         goto out;
     }

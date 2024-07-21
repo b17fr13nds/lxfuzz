@@ -136,7 +136,7 @@ auto print_program(prog_t *program) -> void {
   }
 }
 
-auto execute_program(prog_t *program) -> pid_t {
+auto execute_program(prog_t *program, kcov_t *kcov) -> pid_t {
   auto pid{fork()};
 
   switch(pid) {
@@ -146,17 +146,18 @@ auto execute_program(prog_t *program) -> pid_t {
 
     switch(program->inuse) {
       case SYSCALL:
-      execute_syscallop(program);
+      execute_syscallop(program, kcov);
       break;
       case SYSDEVPROC:
-      execute_sysdevprocop(program);
+      execute_sysdevprocop(program, kcov);
       break;
       case SOCKET:
-      execute_socketop(program);
+      execute_socketop(program, kcov);
       break;
     }
 
-    exit(0);
+    // should never be reached
+    _exit(0);
     case -1:
     perror("fork");
     return -1;
@@ -165,14 +166,14 @@ auto execute_program(prog_t *program) -> pid_t {
   }
 }
 
-auto start(int32_t core, fuzzinfo_t fi) -> void {
+auto start(int32_t core, kcov_t *kcov, corpus_t *corp) -> void {
   prog_t *program{nullptr};
-  uint64_t ncovered{0}, prev_ncovered{0}, prev_addr_covered{0};
+  uint64_t size_diff{0};
 
   while(1) {
     // generation
 
-    if(fi.get_corpus_count() < 1) {
+    if(corp->get_count() < 1) {
       for(int32_t i{0}; i < 0x10; i++) {
         auto rnd{get_random(0,2)};
 
@@ -187,40 +188,36 @@ auto start(int32_t core, fuzzinfo_t fi) -> void {
           program = create_program3();
           break;
         }
-        fi.add_corpus(program);
+        corp->add(program);
       }
     }
 
     // mutation
     for(int32_t i{0}; i < 0x10; i++) {
-      program = fi.get_corpus();
+      program = corp->get();
       if(program == nullptr) break;
 
       flog_program(program, core);
 
-      fi.record_coverage(core);
-      waitpid(execute_program(program), NULL, 0);
-      ncovered = fi.stop_recording(core);
-      fstats(fi.get_corpus_count());
+      waitpid(execute_program(program, kcov), NULL, 0);
+      fstats(corp->get_count());
+      size_diff = kcov->save();
 
-      prev_ncovered = ncovered;
-      prev_addr_covered = fi.get_address(core, ncovered);
-
-      if(!program->nops) {
+      if(!program->nops && !size_diff) {
         delete program;
         continue;
       }
 
       mutate_prog(program);
+
       flog_program(program, core);
 
-      fi.record_coverage(core);
-      waitpid(execute_program(program), NULL, 0);
-      fstats(fi.get_corpus_count());
-      ncovered = fi.stop_recording(core);
+      waitpid(execute_program(program, kcov), NULL, 0);
+      fstats(corp->get_count());
+      size_diff = kcov->save();
 
-      if(ncovered > prev_ncovered || (ncovered <= prev_ncovered && fi.get_address(core, ncovered) != prev_addr_covered)) {
-        fi.add_corpus(program);
+      if(!size_diff) {
+        corp->add(program);
       } else {
         delete program;
       }
@@ -231,14 +228,15 @@ auto start(int32_t core, fuzzinfo_t fi) -> void {
 auto spawn_threads(void *unused) -> int32_t {
   auto cores_available = std::thread::hardware_concurrency();
   std::thread *t = new std::thread[cores_available];
-  fuzzinfo_t fi(cores_available);
+  kcov_t **kcov = new kcov_t*[cores_available];
+  corpus_t corp;
 
   for(decltype(cores_available) i{0}; i < cores_available; i++) {
-      t[i] = std::thread(start, i, fi);
+    kcov[i] = new kcov_t;
+    t[i] = std::thread(start, i, kcov[i], &corp);
   }
 
-  std::string x;
-  std::cin >> x;
+  PAUSE();
 
   return 0;
 }
@@ -283,8 +281,7 @@ auto main(int32_t argc, char **argv) -> int32_t {
       f2.close();
       f3.close();
 
-      std::string x;
-      std::cin >> x;
+      PAUSE();
 
       goto out;
   }
