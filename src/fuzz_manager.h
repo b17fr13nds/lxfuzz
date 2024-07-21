@@ -101,8 +101,8 @@ public:
   }
 
   void add(char e) {
-    if(buffer->size() >= limit)
-      buffer->pop();
+    //if(buffer->size() >= limit)
+      //buffer->pop();
 
     buffer->push_back(e);
   }
