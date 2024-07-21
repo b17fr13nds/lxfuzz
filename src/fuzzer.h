@@ -192,7 +192,7 @@ class kcov_t {
 
 public:
   kcov_t() {
-    out.open("/coverage/kcov.txt", std::ios_base::in|std::ios_base::out|std::ios_base::trunc);
+    out.open("/coverage/kcov.txt", std::ios_base::in|std::ios_base::out);
 
     fd = open("/sys/kernel/debug/kcov", O_RDWR);
     if(fd < 0) error("open");

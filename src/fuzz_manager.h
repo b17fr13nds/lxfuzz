@@ -101,8 +101,9 @@ public:
   }
 
   void add(char e) {
-    //if(buffer->size() >= limit)
-      //buffer->pop();
+    // TODO: remove characters if buffer grows too big
+    // if(buffer->size() >= limit)
+    //
 
     buffer->push_back(e);
   }

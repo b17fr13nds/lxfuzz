@@ -19,6 +19,15 @@ CONFIG_BUG_ON_DATA_CORRUPTION=y
 CONFIG_KCOV=y # make sure /sys/kernel/debug/kcov is rw for user
 CONFIG_KCOV_INSTRUMENT_ALL=y
 
+CONFIG_9P_FS=y
+CONFIG_9P_FS_POSIX_ACL=y
+CONFIG_9P_FS_SECURITY=y
+CONFIG_NETWORK_FILESYSTEMS=y
+CONFIG_NET_9P=y
+CONFIG_NET_9P_DEBUG=y
+CONFIG_NET_9P_VIRTIO=y
+
+CONFIG_DEBUG_INFO=y
 # CONFIG_RANDOMIZE_BASE is not set
 ```
 enabling extra options that add more code to be fuzzed is always a good idea
@@ -38,7 +47,7 @@ if everything is set up you can start the fuzzing manager
 ./fuzz_manager -n <instances> [--timeout <inactive log timeout>] [--daemon] [--userns]
 ```
 ###### required arguments:
-with `-n`, you can choose as many instances as your hardware can take.
+with `-n`, you can choose as many qemu instances as your hardware can take.
 
 ###### optional arguments:
 `--timeout` specifies in seconds, how long no log activity should be ignored, until the `fuzz_manager` checks for hangs or crashes. (default 60s)
@@ -46,6 +55,9 @@ with `-n`, you can choose as many instances as your hardware can take.
 use `--daemon` to run the fuzzer as a daemon in the background.
 
 `--userns` tells the fuzzer to make use of user namespaces.
+
+## coverage
+lxfuzz uses kcov for coverage information gaining. reached addresses in the kernel are saved in `./coverage/kcov.txt`, which is accessible by the guests and host. it is essential for `lxfuzz` to function properly, so make sure the path exists. this information can also be processed by [syzkallers](https://github.com/google/syzkaller)'s `syz-cover`.
 
 ## logs and crashes
 
