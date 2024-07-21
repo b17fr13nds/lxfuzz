@@ -30,12 +30,13 @@ qemu: qemu-setup
 	cd ./tools/qemu-7.1.0 && make
 
 all: qemu fuzzer fuzz_manager reproducer repro_manager
-	mkdir kernel && mkdir kernel/ && mkdir coverage && touch coverage/kcov.txt
+	mkdir kernel && mkdir coverage && touch coverage/kcov.txt
 
 clean: fuzzer fuzz_manager reproducer repro_manager
 	rm fuzzer
 	rm fuzz_manager
 	rm reproducer
 	rm repro_manager
-	rm -r ./kernel/data
 	rm -r ./tools/qemu-7.1.0*
+	rm -r kernel
+	rm -r coverage
